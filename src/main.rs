@@ -25,7 +25,9 @@ use app::App;
 use parse_cli::CLI;
 use parse_cli_command::{parse_cli_command, P_WA_Command};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+use std::process::ExitCode;
+
+fn run() -> Result<(), Box<dyn std::error::Error>> {
     let cli = CLI::parse();
     let command = parse_cli_command(cli.command);
 
@@ -37,4 +39,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     Ok(())
+}
+
+fn main() -> ExitCode {
+    if let Err(err) = run() {
+        println!("Error: {}", err);
+
+        return ExitCode::FAILURE;
+    }
+
+    return ExitCode::SUCCESS;
 }
