@@ -1,4 +1,5 @@
 use crate::app::App;
+use crate::error_ext::ComError;
 use crate::storage::DEFAULT_WORKING_DIR;
 
 use super::{PCommand, PExecutionError};
@@ -6,7 +7,6 @@ use super::{PCommand, PExecutionError};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
-use anyhow::anyhow;
 use walkdir::{DirEntry, WalkDir};
 
 fn is_hidden(name: &OsStr) -> bool {
@@ -118,7 +118,11 @@ impl PCommand for StatusPCMD {
         for entry in directory_rec_iterator {
             let entry = match entry {
                 Ok(entry) => entry,
-                Err(err) => return Err(anyhow!("couldn't get directory entry: {0}", err).into()),
+                Err(err) => {
+                    return Err(
+                        ComError::from(format!("couldn't get directory entry: {0}", err)).into(),
+                    )
+                }
             };
 
             if !self.check_on_tracked(app, &entry)? {

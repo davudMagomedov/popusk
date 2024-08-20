@@ -1,10 +1,9 @@
 use crate::app::App;
 use crate::comps_appearance::progress_to_string;
+use crate::error_ext::ComError;
 use crate::id::ID;
 
 use super::{PCommand, PExecutionError};
-
-use anyhow::anyhow;
 
 #[derive(Debug, Clone)]
 pub struct GetProgressPCMD {
@@ -23,7 +22,13 @@ impl PCommand for GetProgressPCMD {
 
         match maybe_progress {
             Some(progress) => println!("Progress: {}", progress_to_string(&progress)),
-            None => return Err(anyhow!("couldn't find the progress for ID {}", self.id).into()),
+            None => {
+                return Err(ComError::from(format!(
+                    "couldn't find the progress for ID {}",
+                    self.id
+                ))
+                .into())
+            }
         }
 
         Ok(())

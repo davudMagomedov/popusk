@@ -2,14 +2,13 @@ use crate::app::App;
 use crate::comps_appearance::parse_string_to_tags;
 use crate::comps_interaction::libentity_has_progress;
 use crate::entity_base::{EntityBase, EntityType, Tag};
+use crate::error_ext::ComResult;
 use crate::progress::Progress;
 
 use super::{PCommand, PExecutionError};
 
 use std::io::{stdin, stdout, Write};
 use std::path::PathBuf;
-
-use anyhow::anyhow;
 
 #[derive(Debug, Clone)]
 pub struct AddLibentityPCMD {
@@ -34,7 +33,7 @@ impl AddLibentityPCMD {
         }
     }
 
-    fn read_name(&self) -> Result<String, anyhow::Error> {
+    fn read_name(&self) -> ComResult<String> {
         if let Some(name) = &self.name {
             return Ok(name.clone());
         }
@@ -49,7 +48,7 @@ impl AddLibentityPCMD {
         Ok(name.trim().to_string())
     }
 
-    fn read_tags(&self) -> Result<Vec<Tag>, anyhow::Error> {
+    fn read_tags(&self) -> ComResult<Vec<Tag>> {
         if let Some(stringified_tags) = &self.tags {
             return Ok(parse_string_to_tags(stringified_tags)?);
         }
@@ -64,7 +63,7 @@ impl AddLibentityPCMD {
         Ok(parse_string_to_tags(stringified_tags.trim())?)
     }
 
-    fn read_progceil(&self) -> Result<usize, anyhow::Error> {
+    fn read_progceil(&self) -> ComResult<usize> {
         if let Some(prog_ceil) = self.prog_ceil {
             return Ok(prog_ceil);
         }
@@ -81,14 +80,11 @@ impl AddLibentityPCMD {
         Ok(prog_ceil)
     }
 
-    fn read_etype(&self, app: &App) -> Result<EntityType, anyhow::Error> {
+    fn read_etype(&self, app: &App) -> ComResult<EntityType> {
         app.config().document_extension();
 
         if !self.path.exists() {
-            return Err(anyhow!(
-                "the file doesn't exist: {}",
-                self.path.to_string_lossy()
-            ));
+            return Err(format!("the file doesn't exist: {}", self.path.to_string_lossy()).into());
         }
 
         if self.path.is_dir() {

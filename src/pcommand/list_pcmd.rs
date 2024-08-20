@@ -1,10 +1,9 @@
 use crate::app::App;
 use crate::comps_interaction::get_libentity;
+use crate::error_ext::ComError;
 use crate::scripts::Context;
 
 use super::{PCommand, PExecutionError};
-
-use anyhow::anyhow;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum ListMode {
@@ -41,14 +40,18 @@ impl PCommand for ListPCMD {
         for path in paths {
             let libentity = match get_libentity(app.storage(), path)? {
                 Some(libentity) => libentity,
-                None => return Err(anyhow!("invalid library entity").into()),
+                None => return Err(ComError::from(format!("invalid library entity")).into()),
             };
             libentities.push(libentity);
         }
 
         let context = match Context::auto() {
             Some(context) => context,
-            None => return Err(anyhow!("couldn't make context (Context object)").into()),
+            None => {
+                return Err(
+                    ComError::from(format!("couldn't make context (Context object)")).into(),
+                )
+            }
         };
 
         let result = match self.mode {

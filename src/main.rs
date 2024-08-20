@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 #![cfg(unix)]
 
-use anyhow::Result;
 use clap::Parser;
 
 mod app;
@@ -10,6 +9,7 @@ mod comps_interaction;
 mod config;
 mod core_commands;
 mod entity_base;
+mod error_ext;
 mod global_conf_directory;
 mod id;
 mod parse_cli;
@@ -25,7 +25,7 @@ use app::App;
 use parse_cli::CLI;
 use parse_cli_command::{parse_cli_command, P_WA_Command};
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = CLI::parse();
     let command = parse_cli_command(cli.command);
 

@@ -1,5 +1,6 @@
 use super::{filename_from_id, id_from_filename, StorageError, Translator};
 
+use crate::error_ext::{ComError, CommonizeResultExt};
 use crate::id::ID;
 use crate::progress::Progress;
 
@@ -7,7 +8,6 @@ use std::fs::{File, OpenOptions};
 use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
 use bincode::{
     deserialize as bincode_deserialize, serialize as bincode_serialize, Error as BincodeError,
 };
@@ -35,7 +35,7 @@ pub enum IDProgressTError {
     IO(#[from] IoError),
 
     #[error("{0}")]
-    Anyhow(#[from] anyhow::Error),
+    Other(#[from] ComError),
 }
 
 pub struct IDProgressTranslator {
@@ -85,7 +85,7 @@ impl IDProgressTranslator {
         for entry in self.translations_dir.read_dir()? {
             let entry = entry?;
 
-            let id = id_from_filename(entry.file_name())?;
+            let id = id_from_filename(entry.file_name()).commonize()?;
             translations.push(id);
         }
 

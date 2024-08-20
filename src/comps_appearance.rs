@@ -1,8 +1,7 @@
 use crate::entity_base::{EntityBase, EntityType, Tag};
+use crate::error_ext::ComResult;
 use crate::progress::Progress;
 use crate::progress_update::ProgressUpdate;
-
-use anyhow::anyhow;
 
 const STRINGIFIED_ETYPE_SECTION: &str = "section";
 const STRINGIFIED_ETYPE_REGULAR: &str = "regular";
@@ -18,7 +17,7 @@ pub fn entitytype_to_string(etype: EntityType) -> String {
     }
 }
 
-pub fn parse_string_to_tags(stringifed_tags: &str) -> Result<Vec<Tag>, anyhow::Error> {
+pub fn parse_string_to_tags(stringifed_tags: &str) -> ComResult<Vec<Tag>> {
     Ok(stringifed_tags
         .split(',')
         .map(|tag| tag.trim().to_string())
@@ -58,31 +57,31 @@ pub fn progress_to_string(progress: &Progress) -> String {
     format!("{}/{}", progress.passed(), progress.ceiling())
 }
 
-pub fn progress_from_string(s: &str) -> anyhow::Result<Progress> {
+pub fn progress_from_string(s: &str) -> ComResult<Progress> {
     const PASSED_CEILING_SEP: char = '/';
 
     let separator_posisiton = s
         .find(PASSED_CEILING_SEP)
-        .ok_or_else(|| anyhow!("use syntax 'passed{}ceiling'", PASSED_CEILING_SEP))?;
+        .ok_or_else(|| format!("use syntax 'passed{}ceiling'", PASSED_CEILING_SEP))?;
 
     let passed = s[..separator_posisiton].parse::<usize>()?;
     let ceiling = s[separator_posisiton + 1..].parse::<usize>()?;
 
     if passed > ceiling {
-        return Err(anyhow!("<passed> must be less than <ceiling>"));
+        return Err("<passed> must be less than <ceiling>".into());
     }
 
     Ok(Progress::with_passed(passed, ceiling))
 }
 
-fn parse_string_to_integer(string: &str) -> anyhow::Result<usize> {
+fn parse_string_to_integer(string: &str) -> ComResult<usize> {
     match string.parse::<usize>() {
         Ok(int) => Ok(int),
-        Err(_) => Err(anyhow!("couldn't parse string to integer: {}", string)),
+        Err(_) => Err(format!("couldn't parse string to integer: {}", string).into()),
     }
 }
 
-pub fn progress_update_from_string(s: &str) -> anyhow::Result<ProgressUpdate> {
+pub fn progress_update_from_string(s: &str) -> ComResult<ProgressUpdate> {
     match s.get(0..1) {
         Some(plus) if plus == "+" => match s.get(1..) {
             Some(stried_number) => Ok(ProgressUpdate::increase(parse_string_to_integer(
@@ -97,6 +96,6 @@ pub fn progress_update_from_string(s: &str) -> anyhow::Result<ProgressUpdate> {
             None => unreachable!(), // Cause we've succesfully got `s.get(0..1)` above.
         },
         Some(_) => Ok(ProgressUpdate::set(parse_string_to_integer(s)?)),
-        None => Err(anyhow!("couldn't recognize string '{}' as valid", s)),
+        None => Err(format!("couldn't recognize string '{}' as valid", s).into()),
     }
 }

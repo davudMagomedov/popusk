@@ -1,12 +1,12 @@
 use crate::entity_base::*;
-use crate::id::ID;
+use crate::error_ext::ComError;
+use crate::id::{IDError, ID};
 use crate::progress::Progress;
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use anyhow::{Error as AnyhowError, Result};
 use thiserror::Error;
 
 mod available_id_list;
@@ -26,7 +26,7 @@ pub(self) fn filename_from_id(id: ID) -> OsString {
     OsString::from(id.to_string())
 }
 
-pub(self) fn id_from_filename(string: OsString) -> Result<ID, AnyhowError> {
+pub(self) fn id_from_filename(string: OsString) -> Result<ID, IDError> {
     ID::from_str(&string.to_string_lossy())
 }
 
@@ -40,7 +40,7 @@ pub enum StorageError {
     PathIDT(#[from] PathIDTError),
 
     #[error("{0}")]
-    Other(#[from] AnyhowError),
+    Other(#[from] ComError),
 }
 
 /// `Translator` provides interface for filesystem entities which keeps (or make view of keeping)

@@ -1,11 +1,10 @@
 use crate::app::App;
 use crate::comps_interaction::libentity_has_progress;
+use crate::error_ext::ComError;
 
 use super::{PCommand, PExecutionError};
 
 use std::path::PathBuf;
-
-use anyhow::anyhow;
 
 #[derive(Debug, Clone)]
 pub struct DelLibentityPCMD {
@@ -23,10 +22,10 @@ impl PCommand for DelLibentityPCMD {
         let id = match app.storage_mut().get_id(self.path.clone())? {
             Some(id) => id,
             None => {
-                return Err(anyhow!(
+                return Err(ComError::from(format!(
                     "couldn't find ID linked to path '{}'",
                     self.path.to_string_lossy()
-                )
+                ))
                 .into())
             }
         };

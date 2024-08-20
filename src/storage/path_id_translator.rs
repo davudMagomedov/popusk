@@ -1,5 +1,6 @@
 use super::{StorageError, Translator};
 
+use crate::error_ext::ComError;
 use crate::id::ID;
 
 use std::ffi::OsStr;
@@ -12,7 +13,6 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-use anyhow::Result;
 use bincode::{
     deserialize as bincode_deserialize, serialize as bincode_serialize, Error as BincodeError,
 };
@@ -38,7 +38,7 @@ pub enum PathIDTError {
     IO(#[from] IoError),
 
     #[error("{0}")]
-    Anyhow(#[from] anyhow::Error),
+    Other(#[from] ComError),
 }
 
 /// Translates various variations of essentially the same paths into one common form.

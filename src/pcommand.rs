@@ -12,6 +12,7 @@
 
 use crate::app::{App, AppError};
 use crate::core_commands::CoreError;
+use crate::error_ext::ComError;
 use crate::progress_update::ProgressUpdateError;
 use crate::scripts::ScriptsError;
 use crate::storage::StorageError;
@@ -57,6 +58,8 @@ pub use look_pcmd::*;
 pub use open_pcmd::*;
 pub use status_pcmd::*;
 
+use std::error::Error as ErrorTrait;
+
 #[derive(Debug, Error)]
 pub enum PExecutionError {
     #[error("app error: {0}")]
@@ -75,7 +78,7 @@ pub enum PExecutionError {
     ProgressUpdateError(#[from] ProgressUpdateError),
 
     #[error("{0}")]
-    Other(#[from] anyhow::Error),
+    Other(#[from] ComError),
 }
 
 /// `PCommand` (*P*opusk *C*ommand).

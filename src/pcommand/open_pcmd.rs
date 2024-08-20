@@ -3,14 +3,13 @@ use super::{PCommand, PExecutionError};
 use crate::app::App;
 use crate::comps_appearance::{progress_to_string, progress_update_from_string};
 use crate::comps_interaction::libentity_has_progress;
+use crate::error_ext::ComError;
 use crate::id::ID;
 use crate::progress_update::ProgressUpdate;
 
 use std::io::{stdin, stdout, Error as IoError, Write};
 use std::path::PathBuf;
 use std::process::Command;
-
-use anyhow::{anyhow, Context};
 
 fn read_input_stdin() -> Result<String, IoError> {
     let mut string = String::new();
@@ -42,14 +41,14 @@ impl OpenPCMD {
             .args(addit_args)
             .arg(&self.path)
             .spawn()
-            .with_context(|| "can't spawn viewer process")?
+            .map_err(|e| ComError::from(format!("can't spawn viewer process: {e}")))?
             .wait()
-            .with_context(|| "error with the viewer process")?;
+            .map_err(|e| ComError::from(format!("error with the viewer process: {e}")))?;
 
         if exit_status.success() {
             Ok(())
         } else {
-            Err(anyhow!("viewer exited unsuccesfully").into())
+            Err(ComError::from(format!("viewer exited unsuccesfully")).into())
         }
     }
 
@@ -64,10 +63,10 @@ impl OpenPCMD {
         let entitybase = match app.storage().get_entitybase(entity_id)? {
             Some(entitybase) => entitybase,
             None => {
-                return Err(anyhow!(
+                return Err(ComError::from(format!(
                     "couldn't find entitybase for id {} (the invariants were broken)",
                     entity_id
-                )
+                ))
                 .into())
             }
         };
@@ -86,7 +85,11 @@ impl PCommand for OpenPCMD {
         let args = app.config().viewer();
         let viewer = match args.get(0) {
             Some(viewer) => viewer,
-            None => return Err(anyhow!("viewer required at least one argument - name").into()),
+            None => {
+                return Err(
+                    ComError::from(format!("viewer required at least one argument - name")).into(),
+                )
+            }
         };
         let addit_args = &args[1..];
 
@@ -95,10 +98,10 @@ impl PCommand for OpenPCMD {
         let entity_id = match app.storage().get_id(self.path.clone())? {
             Some(entity_id) => entity_id,
             None => {
-                return Err(anyhow!(
+                return Err(ComError::from(format!(
                     "the entity with the path '{}' doesn't exist",
                     self.path.to_string_lossy()
-                )
+                ))
                 .into())
             }
         };
@@ -111,9 +114,9 @@ impl PCommand for OpenPCMD {
         let mut progress = match app.storage().get_progress(entity_id)? {
             Some(progress) => progress,
             None => {
-                return Err(anyhow!(
+                return Err(ComError::from(format!(
                     "progress wasn't found for the entity that supposed to have one"
-                )
+                ))
                 .into())
             }
         };

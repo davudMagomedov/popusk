@@ -1,10 +1,10 @@
+use crate::error_ext::ComResult;
 use crate::id::ID;
 
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
 use memmap2::MmapMut;
 
 const BLOCK_SIZE: usize = 512; // bytes
@@ -48,7 +48,7 @@ pub struct AvailableIDList {
 }
 
 impl AvailableIDList {
-    pub fn open(working_dir: &Path) -> Result<Self> {
+    pub fn open(working_dir: &Path) -> ComResult<Self> {
         let path = working_dir.join(AIL_FILE);
         let file = OpenOptions::new().read(true).write(true).open(&path)?;
 
@@ -58,7 +58,7 @@ impl AvailableIDList {
         })
     }
 
-    pub fn create(working_dir: &Path) -> Result<Self> {
+    pub fn create(working_dir: &Path) -> ComResult<Self> {
         let path = working_dir.join(AIL_FILE);
         let mut file = OpenOptions::new()
             .read(true)
@@ -74,7 +74,7 @@ impl AvailableIDList {
         })
     }
 
-    pub fn grab_id(&mut self) -> Result<ID> {
+    pub fn grab_id(&mut self) -> ComResult<ID> {
         let (byte_index, byte) = match self
             .byte_section()
             .into_iter()
@@ -96,7 +96,7 @@ impl AvailableIDList {
         return Ok(ID::new((byte_index + index_in_byte) as u64));
     }
 
-    pub fn release_id(&mut self, id: ID) -> Result<()> {
+    pub fn release_id(&mut self, id: ID) -> ComResult<()> {
         // 8 - count of bits in a byte.
         if id.value() < (self.byte_count() * 8) as u64 {
             let byte_index = id.value() / 8;
@@ -111,7 +111,7 @@ impl AvailableIDList {
         Ok(())
     }
 
-    fn grow(&mut self) -> Result<()> {
+    fn grow(&mut self) -> ComResult<()> {
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)

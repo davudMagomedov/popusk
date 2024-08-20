@@ -1,13 +1,13 @@
 use super::{filename_from_id, id_from_filename, StorageError, Translator};
 
 use crate::entity_base::*;
+use crate::error_ext::*;
 use crate::id::ID;
 
 use std::fs::{File, OpenOptions};
 use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
 use bincode::{
     deserialize as bincode_deserialize, serialize as bincode_serialize, Error as BincodeError,
 };
@@ -29,8 +29,9 @@ pub enum IDEntitybaseTError {
     SerDeserError(#[from] BincodeError),
     #[error("an I/O error occured: {0}")]
     IO(#[from] IoError),
+
     #[error("{0}")]
-    Anyhow(#[from] anyhow::Error),
+    Other(#[from] ComError),
 }
 
 pub struct IDEntitybaseTranslator {
@@ -77,7 +78,7 @@ impl IDEntitybaseTranslator {
         for entry in self.translations_dir.read_dir()? {
             let entry = entry?;
 
-            let id = id_from_filename(entry.file_name())?;
+            let id = id_from_filename(entry.file_name()).commonize()?;
             translations.push(id);
         }
 
