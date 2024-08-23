@@ -20,6 +20,7 @@ Here are all functions that will be implemented in the future.
 - `list [--wide]`
 - `change_progress <id> <progress_update>`
 - `add_tags <id> tag1,tag2,...`
+- `del_tags <id>`
 
 ## Upgrades
 Empty.

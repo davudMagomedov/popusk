@@ -19,7 +19,7 @@ pub fn entitytype_to_string(etype: EntityType) -> String {
 
 pub fn parse_string_to_tags(stringifed_tags: &str) -> ComResult<Vec<Tag>> {
     Ok(stringifed_tags
-        .split(',')
+        .split(' ')
         .map(|tag| tag.trim().to_string())
         .collect())
 }
@@ -40,7 +40,7 @@ fn tags_to_string(tags: &[Tag]) -> String {
     let mut tag_iter = tags.iter();
     let tag_iter_first = tag_iter.next().unwrap().clone();
 
-    tag_iter.fold(tag_iter_first, |l, r| format!("{}, {}", l, r))
+    tag_iter.fold(tag_iter_first, |l, r| format!("{} {}", l, r))
 }
 
 pub fn entitybase_to_fullinfo_string(entitybase: &EntityBase) -> String {

@@ -81,4 +81,6 @@ pub enum CliCommand {
     },
     #[command(name = "add_tags")]
     AddTags { id: ID, tags: String },
+    #[command(name = "del_tags")]
+    DelTags { id: ID },
 }

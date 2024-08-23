@@ -32,6 +32,7 @@ mod del_entitybase_pcmd;
 mod del_libentity_pcmd;
 mod del_path_pcmd;
 mod del_progress_pcmd;
+mod del_tags_pcmd;
 mod get_entitybase_pcmd;
 mod get_id_pcmd;
 mod get_progress_pcmd;
@@ -50,6 +51,7 @@ pub use del_entitybase_pcmd::*;
 pub use del_libentity_pcmd::*;
 pub use del_path_pcmd::*;
 pub use del_progress_pcmd::*;
+pub use del_tags_pcmd::*;
 pub use get_entitybase_pcmd::*;
 pub use get_id_pcmd::*;
 pub use get_progress_pcmd::*;
@@ -57,8 +59,6 @@ pub use list_pcmd::*;
 pub use look_pcmd::*;
 pub use open_pcmd::*;
 pub use status_pcmd::*;
-
-use std::error::Error as ErrorTrait;
 
 #[derive(Debug, Error)]
 pub enum PExecutionError {
