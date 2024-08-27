@@ -10,11 +10,13 @@ use std::str::FromStr;
 use thiserror::Error;
 
 mod available_id_list;
+mod id_description_translator;
 mod id_entitybase_translator;
 mod id_progress_translator;
 mod path_id_translator;
 
 use available_id_list::AvailableIDList;
+use id_description_translator::{IDDescTError, IDDescriptionTranslator};
 use id_entitybase_translator::{IDEntitybaseTError, IDEntitybaseTranslator};
 use id_progress_translator::{IDProgressTError, IDProgressTranslator};
 use path_id_translator::{PathIDTError, PathIdTranslator};
@@ -38,6 +40,8 @@ pub enum StorageError {
     IDProgressT(#[from] IDProgressTError),
     #[error("path->id translator: {0}")]
     PathIDT(#[from] PathIDTError),
+    #[error("id->description translator: {0}")]
+    IDDescT(#[from] IDDescTError),
 
     #[error("{0}")]
     Other(#[from] ComError),

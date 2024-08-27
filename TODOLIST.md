@@ -22,8 +22,10 @@ Here are all functions that will be implemented in the future.
 - `add_tags <id> tag1,tag2,...`
 - `del_tags <id>`
 
+
 ## Upgrades
 Empty.
 
 ## Features
 - Taking Lua-script to output data produced by `list`, `look` and so on. Those functions are decorative.
+- Descriptions for library entities.

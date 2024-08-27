@@ -149,18 +149,18 @@ impl IDProgressTranslator {
         };
         let mut serialized_old_progress: Vec<u8> = Vec::new();
         read_file.read_to_end(&mut serialized_old_progress)?;
-        let old_entitybase = bincode_deserialize(&serialized_old_progress)?;
+        let old_progress = bincode_deserialize(&serialized_old_progress)?;
         drop(read_file);
 
         // Without catching `io_error` whose kind is `NotFount`. It is because of we already know
-        // that file `entitybase_file_path` points on exists.
+        // that file `progress_file_path` points on exists.
         let mut write_file = OpenOptions::new()
             .write(true)
             .truncate(true)
             .open(&progress_file_path)?;
         write_file.write_all(&bincode_serialize(&new_value)?)?;
 
-        Ok(old_entitybase)
+        Ok(old_progress)
     }
 }
 
