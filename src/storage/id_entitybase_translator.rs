@@ -17,6 +17,10 @@ const ID_EB_TRANSLATIONS_DIR: &str = "ideb_t";
 
 #[derive(Debug, Error)]
 pub enum IDEntitybaseTError {
+    #[error("couldn't make a translator because it already exists")]
+    TranslatorAlreadyExists,
+    #[error("couldn't open a translator because it doesn't exist")]
+    TranslatorDoesNotExist,
     #[error("couldn't find the directory: {0}")]
     DirectoryDoesNotExist(PathBuf),
     #[error("couldn't find the file: {0}")]
@@ -43,7 +47,7 @@ impl IDEntitybaseTranslator {
         let translations_dir = working_dir.join(ID_EB_TRANSLATIONS_DIR);
 
         if !translations_dir.exists() {
-            return Err(IDEntitybaseTError::DirectoryDoesNotExist(translations_dir).into());
+            return Err(IDEntitybaseTError::TranslatorDoesNotExist.into());
         }
 
         Ok(IDEntitybaseTranslator { translations_dir })
@@ -52,7 +56,13 @@ impl IDEntitybaseTranslator {
     pub fn create(working_dir: &Path) -> Result<Self, IDEntitybaseTError> {
         let translations_dir = working_dir.join(ID_EB_TRANSLATIONS_DIR);
 
-        std::fs::create_dir(&translations_dir)?;
+        match std::fs::create_dir(&translations_dir) {
+            Err(io_error) if io_error.kind() == IoErrorKind::AlreadyExists => {
+                return Err(IDEntitybaseTError::TranslatorAlreadyExists)
+            }
+            Err(io_error) => return Err(io_error.into()),
+            Ok(_) => (),
+        }
 
         Ok(IDEntitybaseTranslator { translations_dir })
     }

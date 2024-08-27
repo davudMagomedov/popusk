@@ -21,6 +21,10 @@ fn translations_dir(working_dir: &Path) -> PathBuf {
 
 #[derive(Debug, Error)]
 pub enum IDProgressTError {
+    #[error("couldn't make a translator because it already exists")]
+    TranslatorAlreadyExists,
+    #[error("couldn't open a translator because it doesn't exist")]
+    TranslatorDoesNotExist,
     #[error("couldn't find the directory: {0}")]
     DirectoryDoesNotExist(PathBuf),
     #[error("couldn't find the file: {0}")]
@@ -47,7 +51,7 @@ impl IDProgressTranslator {
         let translations_dir = translations_dir(working_dir);
 
         if !translations_dir.exists() {
-            return Err(IDProgressTError::DirectoryDoesNotExist(translations_dir));
+            return Err(IDProgressTError::TranslatorDoesNotExist);
         }
 
         Ok(IDProgressTranslator { translations_dir })
@@ -56,7 +60,13 @@ impl IDProgressTranslator {
     pub fn create(working_dir: &Path) -> Result<Self, IDProgressTError> {
         let translations_dir = translations_dir(working_dir);
 
-        std::fs::create_dir(&translations_dir)?;
+        match std::fs::create_dir(&translations_dir) {
+            Err(io_error) if io_error.kind() == IoErrorKind::AlreadyExists => {
+                return Err(IDProgressTError::TranslatorAlreadyExists);
+            }
+            Err(io_error) => return Err(io_error.into()),
+            Ok(_) => (),
+        }
 
         Ok(IDProgressTranslator { translations_dir })
     }

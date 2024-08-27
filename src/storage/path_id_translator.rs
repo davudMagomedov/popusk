@@ -24,6 +24,10 @@ const NAME_SEPARATOR: u8 = 0x0A;
 
 #[derive(Debug, Error)]
 pub enum PathIDTError {
+    #[error("couldn't make a translator because it already exists")]
+    TranslatorAlreadyExists,
+    #[error("couldn't open a translator because it doesn't exist")]
+    TranslatorDoesNotExist,
     #[error("using an absolute path: {0}")]
     UsingAbsolutePath(PathBuf),
     #[error("using a path that goes beyond the current directory: {0}")]
@@ -122,7 +126,7 @@ impl PathIdTranslator {
         let translations_dir = working_directory.join(PATH_ID_TRANSLATIONS_DIR);
 
         if !translations_dir.exists() {
-            return Err(PathIDTError::DirectoryDoesNotExist(translations_dir).into());
+            return Err(PathIDTError::TranslatorDoesNotExist.into());
         }
 
         Ok(PathIdTranslator { translations_dir })
@@ -131,7 +135,13 @@ impl PathIdTranslator {
     pub fn create(working_directory: &Path) -> Result<Self, PathIDTError> {
         let translations_dir = working_directory.join(PATH_ID_TRANSLATIONS_DIR);
 
-        std::fs::create_dir(&translations_dir)?;
+        match std::fs::create_dir(&translations_dir) {
+            Err(io_error) if io_error.kind() == IoErrorKind::AlreadyExists => {
+                return Err(PathIDTError::TranslatorAlreadyExists)
+            }
+            Err(io_error) => return Err(io_error.into()),
+            Ok(_) => (),
+        }
 
         Ok(PathIdTranslator { translations_dir })
     }

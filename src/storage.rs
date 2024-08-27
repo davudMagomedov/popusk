@@ -68,6 +68,7 @@ pub struct Storage {
     path_id_translator: Box<dyn Translator<PathBuf, ID>>,
     id_entitybase_translator: Box<dyn Translator<ID, EntityBase>>,
     id_progress_translator: Box<dyn Translator<ID, Progress>>,
+    id_description_translator: Box<dyn Translator<ID, String>>,
     ail: AvailableIDList,
 }
 
@@ -79,6 +80,7 @@ impl Storage {
             path_id_translator: Box::new(PathIdTranslator::open(&working_dir)?),
             id_entitybase_translator: Box::new(IDEntitybaseTranslator::open(&working_dir)?),
             id_progress_translator: Box::new(IDProgressTranslator::open(&working_dir)?),
+            id_description_translator: Box::new(IDDescriptionTranslator::open(&working_dir)?),
             ail: AvailableIDList::open(&working_dir)?,
         })
     }
@@ -90,15 +92,22 @@ impl Storage {
             path_id_translator: Box::new(PathIdTranslator::create(&working_dir)?),
             id_entitybase_translator: Box::new(IDEntitybaseTranslator::create(&working_dir)?),
             id_progress_translator: Box::new(IDProgressTranslator::create(&working_dir)?),
+            id_description_translator: Box::new(IDDescriptionTranslator::create(&working_dir)?),
             ail: AvailableIDList::create(&working_dir)?,
         })
+    }
+
+    /// The same as `Self::update_with_working_dir` but working direcotry is set to default one.
+    pub fn update() -> Result<Self, StorageError> {
+        Storage::update_with_working_dir(&PathBuf::from(DEFAULT_WORKING_DIR))
     }
 
     pub fn open_with_working_dir(working_dir: &Path) -> Result<Self, StorageError> {
         Ok(Storage {
             path_id_translator: Box::new(PathIdTranslator::open(working_dir)?),
-            id_entitybase_translator: Box::new(IDEntitybaseTranslator::open(&working_dir)?),
-            id_progress_translator: Box::new(IDProgressTranslator::open(&working_dir)?),
+            id_entitybase_translator: Box::new(IDEntitybaseTranslator::open(working_dir)?),
+            id_progress_translator: Box::new(IDProgressTranslator::open(working_dir)?),
+            id_description_translator: Box::new(IDDescriptionTranslator::open(working_dir)?),
             ail: AvailableIDList::open(&working_dir)?,
         })
     }
@@ -108,7 +117,48 @@ impl Storage {
             path_id_translator: Box::new(PathIdTranslator::create(working_dir)?),
             id_entitybase_translator: Box::new(IDEntitybaseTranslator::create(working_dir)?),
             id_progress_translator: Box::new(IDProgressTranslator::create(working_dir)?),
+            id_description_translator: Box::new(IDDescriptionTranslator::create(working_dir)?),
             ail: AvailableIDList::create(working_dir)?,
+        })
+    }
+
+    /// This function is the middle between `Self::create` and `Self::open`. It openes the working
+    /// directory and creates missing elements if possible.
+    pub fn update_with_working_dir(working_dir: &Path) -> Result<Self, StorageError> {
+        let ail = AvailableIDList::open(working_dir)?;
+        let path_id_translator = match PathIdTranslator::create(working_dir) {
+            Ok(pit) => pit,
+            Err(PathIDTError::TranslatorAlreadyExists) => PathIdTranslator::open(working_dir)?,
+            Err(other_error) => return Err(other_error.into()),
+        };
+        let id_entitybase_translator = match IDEntitybaseTranslator::create(working_dir) {
+            Ok(iet) => iet,
+            Err(IDEntitybaseTError::TranslatorAlreadyExists) => {
+                IDEntitybaseTranslator::open(working_dir)?
+            }
+            Err(other_error) => return Err(other_error.into()),
+        };
+        let id_progress_translator = match IDProgressTranslator::create(working_dir) {
+            Ok(ipt) => ipt,
+            Err(IDProgressTError::TranslatorAlreadyExists) => {
+                IDProgressTranslator::open(working_dir)?
+            }
+            Err(other_error) => return Err(other_error.into()),
+        };
+        let id_description_translator = match IDDescriptionTranslator::create(working_dir) {
+            Ok(idt) => idt,
+            Err(IDDescTError::TranslatorAlreadyExists) => {
+                IDDescriptionTranslator::open(working_dir)?
+            }
+            Err(other_error) => return Err(other_error.into()),
+        };
+
+        Ok(Storage {
+            path_id_translator: Box::new(path_id_translator),
+            id_progress_translator: Box::new(id_progress_translator),
+            id_entitybase_translator: Box::new(id_entitybase_translator),
+            id_description_translator: Box::new(id_description_translator),
+            ail,
         })
     }
 
