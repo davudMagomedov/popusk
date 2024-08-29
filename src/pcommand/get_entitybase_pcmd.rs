@@ -17,7 +17,7 @@ impl GetEntitybasePCMD {
 
 impl PCommand for GetEntitybasePCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let maybe_entitybase = app.storage().get_entitybase(self.id)?;
+        let maybe_entitybase = unsafe { app.library().storage() }.get_entitybase(self.id)?;
 
         match maybe_entitybase {
             Some(entitybase) => println!("{}", entitybase_to_fullinfo_string(&entitybase)),

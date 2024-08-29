@@ -93,7 +93,9 @@ impl StatusPCMD {
     }
 
     fn check_on_tracked(&self, app: &App, entry: &DirEntry) -> Result<bool, PExecutionError> {
-        Ok(app.storage().get_id(entry.path().to_owned())?.is_some())
+        Ok(unsafe { app.library().storage() }
+            .get_id(entry.path().to_owned())?
+            .is_some())
     }
 
     fn print_untracked_paths(&self, untracked_paths: Vec<PathBuf>) {

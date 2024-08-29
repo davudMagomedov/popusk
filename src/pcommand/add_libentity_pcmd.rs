@@ -1,8 +1,9 @@
 use crate::app::App;
 use crate::comps_appearance::parse_string_to_tags;
 use crate::comps_interaction::libentity_has_progress;
-use crate::entity_base::{EntityBase, EntityType, Tag};
+use crate::entity_base::{EntityType, Tag};
 use crate::error_ext::ComResult;
+use crate::libentity::LibEntityData;
 use crate::progress::Progress;
 
 use super::{PCommand, PExecutionError};
@@ -81,8 +82,6 @@ impl AddLibentityPCMD {
     }
 
     fn read_etype(&self, app: &App) -> ComResult<EntityType> {
-        app.config().document_extension();
-
         if !self.path.exists() {
             return Err(format!("the file doesn't exist: {}", self.path.to_string_lossy()).into());
         }
@@ -105,6 +104,21 @@ impl AddLibentityPCMD {
             Ok(EntityType::Regular)
         }
     }
+
+    fn read_description(&self) -> ComResult<Option<String>> {
+        let mut stdout = stdout();
+        stdout.write_all(b"Description (leave empty if none): ")?;
+        stdout.flush()?;
+
+        let mut description = String::new();
+        stdin().read_line(&mut description)?;
+
+        if !description.trim().is_empty() {
+            Ok(Some(description.trim().to_string()))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 impl PCommand for AddLibentityPCMD {
@@ -113,28 +127,23 @@ impl PCommand for AddLibentityPCMD {
         let name = self.read_name()?;
         let tags = self.read_tags()?;
         let etype = self.read_etype(app)?;
-        let maybe_progceil = if libentity_has_progress(etype) {
-            Some(self.read_progceil()?)
+        let progress = if libentity_has_progress(etype) {
+            Some(Progress::new(self.read_progceil()?))
         } else {
             None
         };
+        let description = self.read_description()?;
 
-        // Critical section {
+        let libentity_data = LibEntityData {
+            path: self.path.clone(),
+            description,
+            etype,
+            name,
+            progress,
+            tags,
+        };
 
-        // FIX: The function can raise error here and invariants will be violated. This section
-        // must be executed atomically.
-
-        let id = crate::core_commands::corecmd_add_path(app.storage_mut(), self.path.clone())?;
-
-        let entitybase = EntityBase::new(id, name, etype, tags);
-        app.storage_mut().link_entitybase_to_id(id, entitybase)?;
-
-        if let Some(progceil) = maybe_progceil {
-            app.storage_mut()
-                .link_progress_to_id(id, Progress::new(progceil))?;
-        }
-
-        // } critical section
+        app.library_mut().add_libentity(libentity_data)?;
 
         Ok(())
     }

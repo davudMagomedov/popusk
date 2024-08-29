@@ -8,11 +8,11 @@ use std::io::{stdin, Read};
 
 use bincode::deserialize as bincode_deserialize;
 
+/// UNSAFE COMMAND
 #[derive(Debug, Clone)]
 pub struct AddEntitybasePCMD {
     id: ID,
 }
-
 impl AddEntitybasePCMD {
     pub fn new(id: ID) -> Self {
         AddEntitybasePCMD { id }
@@ -25,7 +25,12 @@ impl PCommand for AddEntitybasePCMD {
         stdin().read_to_end(&mut serialized_entitybase)?;
 
         let entitybase: EntityBase = bincode_deserialize(&serialized_entitybase)?;
-        crate::core_commands::corecmd_add_entitybase(app.storage_mut(), self.id, entitybase)?;
+        crate::core_commands::corecmd_add_entitybase(
+            // SAFETY: none, because the command is already unsafe itself.
+            unsafe { app.library_mut().storage_mut() },
+            self.id,
+            entitybase,
+        )?;
 
         println!("Given entitybase was associated with the ID {}", self.id);
 

@@ -23,7 +23,7 @@ impl ChangeProgressPCMD {
 
 impl PCommand for ChangeProgressPCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let mut progress = match app.storage().get_progress(self.id)? {
+        let mut progress = match unsafe { app.library().storage() }.get_progress(self.id)? {
             Some(progress) => progress,
             None => {
                 return Err(
@@ -34,7 +34,7 @@ impl PCommand for ChangeProgressPCMD {
 
         self.progress_update.execute_for(&mut progress)?;
 
-        app.storage_mut().update_progress(self.id, progress)?;
+        unsafe { app.library_mut().storage_mut() }.update_progress(self.id, progress)?;
 
         println!(
             "The progress was updated to {}",

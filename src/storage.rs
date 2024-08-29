@@ -176,6 +176,18 @@ impl Storage {
         Ok(id)
     }
 
+    pub unsafe fn link_id_to_path_raw(
+        &mut self,
+        path: PathBuf,
+        id: ID,
+    ) -> Result<(), StorageError> {
+        self.path_id_translator.add_translation(path, id)
+    }
+
+    pub unsafe fn unlink_id_from_path_raw(&mut self, path: PathBuf) -> Result<ID, StorageError> {
+        self.path_id_translator.del_translation(path)
+    }
+
     pub fn link_progress_to_id(&mut self, id: ID, progress: Progress) -> Result<(), StorageError> {
         self.id_progress_translator.add_translation(id, progress)
     }
@@ -206,6 +218,19 @@ impl Storage {
         self.id_entitybase_translator.del_translation(id)
     }
 
+    pub fn link_description_to_id(
+        &mut self,
+        id: ID,
+        description: String,
+    ) -> Result<(), StorageError> {
+        self.id_description_translator
+            .add_translation(id, description)
+    }
+
+    pub fn unlink_description_from_id(&mut self, id: ID) -> Result<String, StorageError> {
+        self.id_description_translator.del_translation(id)
+    }
+
     pub fn update_entitybase(
         &mut self,
         id: ID,
@@ -225,6 +250,10 @@ impl Storage {
 
     pub fn get_entitybase(&self, id: ID) -> Result<Option<EntityBase>, StorageError> {
         self.id_entitybase_translator.translate(id)
+    }
+
+    pub fn get_description(&self, id: ID) -> Result<Option<String>, StorageError> {
+        self.id_description_translator.translate(id)
     }
 
     pub fn keys_path(&self) -> Result<Vec<PathBuf>, StorageError> {

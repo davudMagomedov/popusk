@@ -13,6 +13,7 @@
 use crate::app::{App, AppError};
 use crate::core_commands::CoreError;
 use crate::error_ext::ComError;
+use crate::library::LibraryError;
 use crate::progress_update::ProgressUpdateError;
 use crate::scripts::ScriptsError;
 use crate::storage::StorageError;
@@ -76,6 +77,8 @@ pub enum PExecutionError {
     ScriptsError(#[from] ScriptsError),
     #[error("progress update error: {0}")]
     ProgressUpdateError(#[from] ProgressUpdateError),
+    #[error("library error: {0}")]
+    LibraryError(#[from] LibraryError),
 
     #[error("{0}")]
     Other(#[from] ComError),

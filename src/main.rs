@@ -12,6 +12,8 @@ mod entity_base;
 mod error_ext;
 mod global_conf_directory;
 mod id;
+mod libentity;
+mod library;
 mod parse_cli;
 mod parse_cli_command;
 mod pcommand;

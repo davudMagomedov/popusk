@@ -18,7 +18,7 @@ impl GetProgressPCMD {
 
 impl PCommand for GetProgressPCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let maybe_progress = app.storage().get_progress(self.id)?;
+        let maybe_progress = unsafe { app.library().storage() }.get_progress(self.id)?;
 
         match maybe_progress {
             Some(progress) => println!("Progress: {}", progress_to_string(&progress)),

@@ -1,5 +1,4 @@
 use crate::app::App;
-use crate::comps_interaction::get_libentity;
 use crate::error_ext::ComError;
 use crate::scripts::Context;
 
@@ -34,11 +33,11 @@ impl ListPCMD {
 
 impl PCommand for ListPCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let paths = app.storage().keys_path()?;
+        let paths = unsafe { app.library().storage() }.keys_path()?;
 
         let mut libentities = Vec::with_capacity(paths.len());
         for path in paths {
-            let libentity = match get_libentity(app.storage(), path)? {
+            let libentity = match app.library().get_libentity(path)? {
                 Some(libentity) => libentity,
                 None => return Err(ComError::from(format!("invalid library entity")).into()),
             };

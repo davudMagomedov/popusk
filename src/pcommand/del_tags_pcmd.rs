@@ -56,7 +56,7 @@ impl DelTagsPCMD {
 
 impl PCommand for DelTagsPCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let mut entitybase = match app.storage().get_entitybase(self.id)? {
+        let mut entitybase = match unsafe { app.library().storage() }.get_entitybase(self.id)? {
             Some(entitybase) => entitybase,
             None => {
                 return Err(
@@ -73,7 +73,7 @@ impl PCommand for DelTagsPCMD {
         let done_tags = delete_indexes_in_vector(old_tags, &indexes_to_delete);
         _ = std::mem::replace(entitybase.tags_mut(), done_tags);
 
-        app.storage_mut().update_entitybase(self.id, entitybase)?;
+        unsafe { app.library_mut().storage_mut() }.update_entitybase(self.id, entitybase)?;
 
         Ok(())
     }

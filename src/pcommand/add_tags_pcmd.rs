@@ -21,7 +21,7 @@ impl AddTagsPCMD {
 
 impl PCommand for AddTagsPCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let mut entitybase = match app.storage().get_entitybase(self.id)? {
+        let mut entitybase = match unsafe { app.library().storage() }.get_entitybase(self.id)? {
             Some(entitybase) => entitybase,
             None => {
                 return Err(
@@ -40,7 +40,7 @@ impl PCommand for AddTagsPCMD {
             .map(|s| s.clone())
             .collect();
 
-        app.storage_mut().update_entitybase(self.id, entitybase)?;
+        unsafe { app.library_mut().storage_mut() }.update_entitybase(self.id, entitybase)?;
 
         println!("The tags were added");
 

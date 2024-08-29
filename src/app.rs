@@ -1,4 +1,5 @@
 use crate::config::{read_config, Config, ConfigError};
+use crate::library::{Library, LibraryError};
 use crate::scripts::{open_scripts, Scripts, ScriptsError};
 use crate::storage::{Storage, StorageError};
 
@@ -11,7 +12,9 @@ const WORKING_DIR: &str = ".popusk";
 
 #[derive(Debug, Error)]
 pub enum AppError {
-    #[error("storage: {0}")]
+    #[error("library error: {0}")]
+    LibraryError(#[from] LibraryError),
+    #[error("storage error: {0}")]
     StorageError(#[from] StorageError),
     #[error("config: {0}")]
     ConfigError(#[from] ConfigError),
@@ -23,7 +26,7 @@ pub enum AppError {
 
 /// Contains all information about application state - storage, config, etc.
 pub struct App {
-    storage: Storage,
+    library: Library,
     config: Config,
     scripts: Scripts,
 }
@@ -31,7 +34,7 @@ pub struct App {
 impl App {
     pub fn open() -> Result<Self, AppError> {
         Ok(App {
-            storage: Storage::open_with_working_dir(&PathBuf::from(WORKING_DIR))?,
+            library: Library::new(Storage::open_with_working_dir(&PathBuf::from(WORKING_DIR))?),
             config: read_config()?,
             scripts: open_scripts()?,
         })
@@ -43,22 +46,22 @@ impl App {
         std::fs::create_dir(&working_dir_path)?;
 
         Ok(App {
-            storage: Storage::create_with_working_dir(&working_dir_path)?,
+            library: Library::new(Storage::create_with_working_dir(&working_dir_path)?),
             config: read_config()?,
             scripts: open_scripts()?,
         })
     }
 
+    pub fn library(&self) -> &Library {
+        &self.library
+    }
+
+    pub fn library_mut(&mut self) -> &mut Library {
+        &mut self.library
+    }
+
     pub fn config(&self) -> &Config {
         &self.config
-    }
-
-    pub fn storage(&self) -> &Storage {
-        &self.storage
-    }
-
-    pub fn storage_mut(&mut self) -> &mut Storage {
-        &mut self.storage
     }
 
     pub fn scripts(&self) -> &Scripts {

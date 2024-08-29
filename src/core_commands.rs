@@ -49,7 +49,11 @@ pub fn corecmd_del_entitybase(storage: &mut Storage, id: ID) -> Result<EntityBas
 }
 
 pub fn corecmd_init_current_directory() -> Result<(), CoreError> {
-    App::create()?;
+    Storage::create()?;
+    Ok(())
+}
 
+pub fn corecmd_update_current_directory() -> Result<(), CoreError> {
+    Storage::update()?;
     Ok(())
 }

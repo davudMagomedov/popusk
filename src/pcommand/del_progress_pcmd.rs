@@ -17,8 +17,10 @@ impl DelProgressPCMD {
 
 impl PCommand for DelProgressPCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let deleted_progress =
-            crate::core_commands::corecmd_del_progress(app.storage_mut(), self.id)?;
+        let deleted_progress = crate::core_commands::corecmd_del_progress(
+            unsafe { app.library_mut().storage_mut() },
+            self.id,
+        )?;
 
         println!(
             "Progress {} was detached from the {} id",

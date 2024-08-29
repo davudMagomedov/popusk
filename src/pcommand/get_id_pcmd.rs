@@ -17,7 +17,7 @@ impl GetIDPCMD {
 
 impl PCommand for GetIDPCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let maybe_id = app.storage().get_id(self.path.clone())?;
+        let maybe_id = unsafe { app.library().storage() }.get_id(self.path.clone())?;
 
         match maybe_id {
             Some(id) => println!("ID: {}", id),

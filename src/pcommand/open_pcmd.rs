@@ -3,8 +3,8 @@ use super::{PCommand, PExecutionError};
 use crate::app::App;
 use crate::comps_appearance::{progress_to_string, progress_update_from_string};
 use crate::comps_interaction::libentity_has_progress;
+use crate::entity_base::EntityType;
 use crate::error_ext::ComError;
-use crate::id::ID;
 use crate::progress_update::ProgressUpdate;
 
 use std::io::{stdin, stdout, Error as IoError, Write};
@@ -57,21 +57,9 @@ impl OpenPCMD {
     /// are broken.
     fn read_progress_update(
         &self,
-        entity_id: ID,
-        app: &App,
+        libentity_etype: EntityType,
     ) -> Result<Option<ProgressUpdate>, PExecutionError> {
-        let entitybase = match app.storage().get_entitybase(entity_id)? {
-            Some(entitybase) => entitybase,
-            None => {
-                return Err(ComError::from(format!(
-                    "couldn't find entitybase for id {} (the invariants were broken)",
-                    entity_id
-                ))
-                .into())
-            }
-        };
-
-        if libentity_has_progress(entitybase.etype()) {
+        if libentity_has_progress(libentity_etype) {
             write_stdout("Progress update: ")?;
             Ok(Some(progress_update_from_string(&read_input_stdin()?)?))
         } else {
@@ -95,34 +83,24 @@ impl PCommand for OpenPCMD {
 
         self.reading_session(viewer, addit_args)?;
 
-        let entity_id = match app.storage().get_id(self.path.clone())? {
-            Some(entity_id) => entity_id,
-            None => {
-                return Err(ComError::from(format!(
-                    "the entity with the path '{}' doesn't exist",
-                    self.path.to_string_lossy()
-                ))
-                .into())
-            }
+        let libentity = match app.library().get_libentity(self.path.clone())? {
+            Some(libentity) => libentity,
+            None => return Err(ComError::from(format!("couldn't find library entity")).into()),
+        };
+        let libentity_etype = libentity.etype();
+        let mut progress = match libentity.progress() {
+            Some(progress) => progress.clone(),
+            None => return Ok(()),
         };
 
-        let progress_update = match self.read_progress_update(entity_id, app)? {
+        let progress_update = match self.read_progress_update(libentity_etype)? {
             Some(progress_update) => progress_update,
             None => return Ok(()),
         };
 
-        let mut progress = match app.storage().get_progress(entity_id)? {
-            Some(progress) => progress,
-            None => {
-                return Err(ComError::from(format!(
-                    "progress wasn't found for the entity that supposed to have one"
-                ))
-                .into())
-            }
-        };
-
         progress_update.execute_for(&mut progress)?;
-        app.storage_mut().update_progress(entity_id, progress)?;
+
+        unsafe { app.library_mut().storage_mut() }.update_progress(libentity.id(), progress)?;
 
         println!(
             "The progress was updated to {}",

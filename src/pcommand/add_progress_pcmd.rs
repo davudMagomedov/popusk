@@ -4,6 +4,7 @@ use crate::app::App;
 use crate::id::ID;
 use crate::progress::Progress;
 
+/// UNSAFE COMMAND
 #[derive(Debug, Clone)]
 pub struct AddProgressPCMD {
     id: ID,
@@ -18,7 +19,12 @@ impl AddProgressPCMD {
 
 impl PCommand for AddProgressPCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        crate::core_commands::corecmd_add_progress(app.storage_mut(), self.id, self.progress)?;
+        crate::core_commands::corecmd_add_progress(
+            // SAFETY: the command is unsafe.
+            unsafe { app.library_mut().storage_mut() },
+            self.id,
+            self.progress,
+        )?;
 
         println!(
             "The progress '{}/{}' was associated with the ID {}",

@@ -1,5 +1,4 @@
 use crate::app::App;
-use crate::comps_interaction::get_libentity;
 use crate::error_ext::ComError;
 use crate::scripts::Context;
 
@@ -20,13 +19,14 @@ impl LookPCMD {
 
 impl PCommand for LookPCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let libentity = match get_libentity(app.storage(), self.path.clone())? {
+        let libentity = match app.library().get_libentity(self.path.clone())? {
             Some(libentity) => libentity,
             None => {
                 return Err(ComError::from(format!(
-                    "couldn't get library entity (LibEntity object)"
+                    "couldn't find library entity with path '{}'",
+                    self.path.to_string_lossy()
                 ))
-                .into())
+                .into());
             }
         };
         let context = match Context::auto() {

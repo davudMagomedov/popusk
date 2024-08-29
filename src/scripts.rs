@@ -1,7 +1,6 @@
 use crate::comps_appearance::entitytype_to_string;
-use crate::entity_base::EntityBase;
 use crate::global_conf_directory::{configdir, GlobalConfError};
-use crate::progress::Progress;
+use crate::libentity::LibEntity;
 
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
 use std::path::PathBuf;
@@ -57,34 +56,17 @@ impl IntoLua for Context {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct LibEntity {
-    path: PathBuf,
-    base: EntityBase,
-    progress: Option<Progress>,
-}
-
-impl LibEntity {
-    pub fn new(path: PathBuf, base: EntityBase, progress: Option<Progress>) -> Self {
-        LibEntity {
-            path,
-            base,
-            progress,
-        }
-    }
-}
-
 impl IntoLua for LibEntity {
     fn into_lua(self, lua: &Lua) -> LuaResult<LuaValue> {
         let libentity_table = lua.create_table()?;
 
-        libentity_table.set("path", self.path.to_string_lossy())?;
-        libentity_table.set("id", self.base.id().to_string())?;
-        libentity_table.set("name", self.base.name().clone())?;
-        libentity_table.set("tags", self.base.tags().clone())?;
-        libentity_table.set("etype", entitytype_to_string(self.base.etype()))?;
+        libentity_table.set("path", self.path().to_string_lossy())?;
+        libentity_table.set("id", self.id().to_string())?;
+        libentity_table.set("name", self.name().clone())?;
+        libentity_table.set("tags", self.tags().clone())?;
+        libentity_table.set("etype", entitytype_to_string(self.etype()))?;
 
-        if let Some(progress) = self.progress {
+        if let Some(progress) = self.progress() {
             let progress_table = lua.create_table()?;
 
             progress_table.set("passed", progress.passed())?;
