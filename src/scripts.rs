@@ -75,6 +75,10 @@ impl IntoLua for LibEntity {
             libentity_table.set("progress", progress_table)?;
         }
 
+        if let Some(description) = self.description() {
+            libentity_table.set("description", description.clone())?;
+        }
+
         Ok(LuaValue::Table(libentity_table))
     }
 }
