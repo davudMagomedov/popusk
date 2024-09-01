@@ -25,6 +25,7 @@ Contains information about library entity in the library.
 4. `tags`. Array of strings.
 5. `etype`. Entity type. String that can be one of the values: "document", "section", "regular".
 6. `progress`. Progress of document, available only if `etype` is "document". Progress.
+7. `description`. Optional string.
 
 ## Scripts file
 Scripts file has path `$HOME/.config/popusk/scripts.lua` and has the following content (note that definitions of the functions are abstract and differ from valid *lua*-definitions).
