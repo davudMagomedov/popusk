@@ -1,6 +1,8 @@
 use crate::comps_interaction::libentity_has_progress;
-use crate::entity_base::EntityBase;
+use crate::entity_base::{EntityBase, EntityType, Tag};
+use crate::id::ID;
 use crate::libentity::{LibEntity, LibEntityData};
+use crate::progress::Progress;
 use crate::storage::{Storage, StorageError};
 
 use std::path::PathBuf;
@@ -15,6 +17,8 @@ pub enum LibraryError {
     CouldNotFindLibEntity { path: PathBuf },
     #[error("couldn't find {element} for library entity with path {path}")]
     CouldNotFindElement { element: String, path: PathBuf },
+    #[error("couldn't find {element} for library entity with ID {id}")]
+    CouldNotFindElementWithID { element: String, id: ID },
 }
 
 /// Implements operations with library entities (`LibEntity`) through storage (`Storage`).
@@ -128,6 +132,40 @@ impl Library {
         self.add_libentity(new_libentity_data)?;
 
         Ok(old_libentity)
+    }
+
+    pub fn get_id(&self, path: PathBuf) -> Result<Option<ID>, LibraryError> {
+        Ok(self.storage.get_id(path)?)
+    }
+
+    pub fn get_progress(&self, id: ID) -> Result<Option<Progress>, LibraryError> {
+        Ok(self.storage.get_progress(id)?)
+    }
+
+    pub fn get_description(&self, id: ID) -> Result<Option<String>, LibraryError> {
+        Ok(self.storage.get_description(id)?)
+    }
+
+    pub fn get_name(&self, id: ID) -> Result<Option<String>, LibraryError> {
+        Ok(self
+            .storage
+            .get_entitybase(id)?
+            .map(|base| base.name().clone()))
+    }
+
+    pub fn get_etype(&self, id: ID) -> Result<Option<EntityType>, LibraryError> {
+        Ok(self.storage.get_entitybase(id)?.map(|base| base.etype()))
+    }
+
+    pub fn get_tags(&self, id: ID) -> Result<Option<Vec<Tag>>, LibraryError> {
+        Ok(self
+            .storage
+            .get_entitybase(id)?
+            .map(|base| base.tags().clone()))
+    }
+
+    pub fn get_base(&self, id: ID) -> Result<Option<EntityBase>, LibraryError> {
+        Ok(self.storage.get_entitybase(id)?)
     }
 
     pub unsafe fn storage(&self) -> &Storage {

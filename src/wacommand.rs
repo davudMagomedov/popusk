@@ -37,3 +37,18 @@ impl WACommand for InitWACMD {
         Ok(())
     }
 }
+
+pub struct UpdateWAPCMD;
+
+impl UpdateWAPCMD {
+    pub fn new() -> Self {
+        UpdateWAPCMD
+    }
+}
+
+impl WACommand for UpdateWAPCMD {
+    fn execute(&self) -> Result<(), WAExexutionError> {
+        crate::core_commands::corecmd_update_current_directory()?;
+        Ok(())
+    }
+}

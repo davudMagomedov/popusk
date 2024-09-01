@@ -52,4 +52,15 @@ impl EntityBase {
     pub fn tags_mut(&mut self) -> &mut Vec<Tag> {
         &mut self.tags
     }
+
+    pub fn destruct(self) -> (ID, String, EntityType, Vec<Tag>) {
+        let EntityBase {
+            id,
+            name,
+            etype,
+            tags,
+        } = self;
+
+        (id, name, etype, tags)
+    }
 }

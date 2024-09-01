@@ -11,6 +11,7 @@ pub enum P_WA_Command {
 pub fn parse_cli_command(cli_command: CliCommand) -> P_WA_Command {
     match cli_command {
         CliCommand::Init => P_WA_Command::WACommand(Box::new(InitWACMD::new())),
+        CliCommand::Update => P_WA_Command::WACommand(Box::new(UpdateWAPCMD::new())),
         CliCommand::AddPath { path } => P_WA_Command::PCommand(Box::new(AddPathPCMD::new(path))),
         CliCommand::AddProgress { id, progress } => {
             P_WA_Command::PCommand(Box::new(AddProgressPCMD::new(id, progress)))

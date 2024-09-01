@@ -1,4 +1,4 @@
-use crate::app::{App, AppError};
+use crate::app::AppError;
 use crate::entity_base::EntityBase;
 use crate::id::ID;
 use crate::progress::Progress;

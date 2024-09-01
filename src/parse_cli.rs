@@ -18,6 +18,8 @@ pub struct CLI {
 pub enum CliCommand {
     #[command(name = "init")]
     Init,
+    #[command(name = "update")]
+    Update,
     #[command(name = "llc_add_path")]
     AddPath { path: PathBuf },
     #[command(name = "llc_add_progress")]
