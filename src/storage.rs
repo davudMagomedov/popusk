@@ -4,6 +4,7 @@ use crate::id::{IDError, ID};
 use crate::progress::Progress;
 
 use std::ffi::OsString;
+use std::io::Error as IoError;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -42,6 +43,8 @@ pub enum StorageError {
     PathIDT(#[from] PathIDTError),
     #[error("id->description translator: {0}")]
     IDDescT(#[from] IDDescTError),
+    #[error("io: {0}")]
+    IO(#[from] IoError),
 
     #[error("{0}")]
     Other(#[from] ComError),
@@ -87,6 +90,7 @@ impl Storage {
 
     pub fn create() -> Result<Self, StorageError> {
         let working_dir = PathBuf::from(DEFAULT_WORKING_DIR);
+        std::fs::create_dir(&working_dir)?;
 
         Ok(Storage {
             path_id_translator: Box::new(PathIdTranslator::create(&working_dir)?),
@@ -113,6 +117,7 @@ impl Storage {
     }
 
     pub fn create_with_working_dir(working_dir: &Path) -> Result<Self, StorageError> {
+        std::fs::create_dir(&working_dir)?;
         Ok(Storage {
             path_id_translator: Box::new(PathIdTranslator::create(working_dir)?),
             id_entitybase_translator: Box::new(IDEntitybaseTranslator::create(working_dir)?),

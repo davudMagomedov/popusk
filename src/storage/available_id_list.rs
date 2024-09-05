@@ -93,7 +93,7 @@ impl AvailableIDList {
         let index_in_byte = find_zero_in_byte(byte);
         self.byte_section_mut()[byte_index] = set_one_in_byte(byte, index_in_byte);
 
-        return Ok(ID::new((byte_index + index_in_byte) as u64));
+        return Ok(ID::new((8 * byte_index + index_in_byte) as u64));
     }
 
     pub fn release_id(&mut self, id: ID) -> ComResult<()> {
