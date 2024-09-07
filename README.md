@@ -15,11 +15,20 @@
 ```bash
 git clone https://github.com/davudMagomedov/popusk.git && cd popusk
 ```
-3. Build the project.
+3. Clone the configuration repository (or make it yourself).
+    - **If your terminal supports Nerd Font**.
+    ```bash
+    git clone https://github.com/davudMagomedov/popusk-config-nerdfont.git ~/.config/popusk
+    ```
+    - **If your terminal doesn't support Nerd Font**.
+    ```bash
+    git clone https://github.com/davudMagomedov/popusk-config.git ~/.config/popusk
+    ```
+4. Build the project.
 ```bash
 cargo build --release
 ```
-4. Binary in `target/release/` directory.
+5. Binary in `target/release/` directory.
 
 ### Build features
 There's no build feature yet.
