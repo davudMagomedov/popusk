@@ -13,7 +13,7 @@ Now you have everything you need to start using the app.
 New library entities are added via the `popusk add_libentity` command.
 Library entities are deleted via the `popusk del_libentity` command.
 If you need a description for some command, use template `popusk <command> --help`.
-There are visual commands (i.e. the main purpose of which is to display aesthetically pleasing text). For example, `look` and `list` are visual commands.
+There are *beautiful commands* (i.e. the main purpose of which is to display aesthetically pleasing text). For example, `look` and `list` are beautiful commands.
 
 ## Library entities
 
