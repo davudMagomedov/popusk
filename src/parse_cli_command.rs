@@ -33,6 +33,9 @@ pub fn parse_cli_command(cli_command: CliCommand) -> P_WA_Command {
             P_WA_Command::PCommand(Box::new(DelEntitybasePCMD::new(id)))
         }
         CliCommand::DelTags { id } => P_WA_Command::PCommand(Box::new(DelTagsPCMD::new(id))),
+        CliCommand::DelDescription { id } => {
+            P_WA_Command::PCommand(Box::new(DelDescriptionPCMD::new(id)))
+        }
         CliCommand::GetId { path } => P_WA_Command::PCommand(Box::new(GetIDPCMD::new(path))),
         CliCommand::GetProgress { id } => {
             P_WA_Command::PCommand(Box::new(GetProgressPCMD::new(id)))

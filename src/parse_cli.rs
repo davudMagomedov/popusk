@@ -53,6 +53,9 @@ pub enum CliCommand {
     /// Delete the entity base from the storage of current directory
     #[command(name = "llc_del_entitybase")]
     DelEntitybase { id: ID },
+    /// Delete the description from the stroage of current directory
+    #[command(name = "llc_del_description")]
+    DelDescription { id: ID },
     /// Return ID of the library entity associated with the given path
     #[command(name = "get_id")]
     GetId { path: PathBuf },
