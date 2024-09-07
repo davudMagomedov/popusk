@@ -23,6 +23,7 @@ use std::io::Error as IoError;
 use bincode::Error as BincodeError;
 use thiserror::Error;
 
+mod add_description_pcmd;
 mod add_entitybase_pcmd;
 mod add_libentity_pcmd;
 mod add_path_pcmd;
@@ -42,6 +43,7 @@ mod look_pcmd;
 mod open_pcmd;
 mod status_pcmd;
 
+pub use add_description_pcmd::*;
 pub use add_entitybase_pcmd::*;
 pub use add_libentity_pcmd::*;
 pub use add_path_pcmd::*;

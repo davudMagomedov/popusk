@@ -38,9 +38,12 @@ pub enum CliCommand {
         #[arg(value_parser = progress_from_string)]
         progress: Progress,
     },
-    /// Add entity base for ID
+    /// Add entity base for ID. Put serialized entitybase to stdin
     #[command(name = "llc_add_entitybase")]
     AddEntitybase { id: ID },
+    /// Add description for ID
+    #[command(name = "llc_add_description")]
+    AddDescription { id: ID, description: String },
     /// Delete the path from the storage of current directory
     #[command(name = "llc_del_path")]
     DelPath { path: PathBuf },

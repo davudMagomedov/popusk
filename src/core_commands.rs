@@ -36,6 +36,14 @@ pub fn corecmd_add_entitybase(
     Ok(storage.link_entitybase_to_id(id, entitybase)?)
 }
 
+pub fn corecmd_add_description(
+    storage: &mut Storage,
+    id: ID,
+    description: String,
+) -> Result<(), CoreError> {
+    Ok(storage.link_description_to_id(id, description)?)
+}
+
 pub fn corecmd_del_path(storage: &mut Storage, path: PathBuf) -> Result<ID, CoreError> {
     Ok(storage.unlink_id_from_path(path)?)
 }
@@ -46,6 +54,10 @@ pub fn corecmd_del_progress(storage: &mut Storage, id: ID) -> Result<Progress, C
 
 pub fn corecmd_del_entitybase(storage: &mut Storage, id: ID) -> Result<EntityBase, CoreError> {
     Ok(storage.unlink_entitybase_from_id(id)?)
+}
+
+pub fn corecmd_del_description(storage: &mut Storage, id: ID) -> Result<String, CoreError> {
+    Ok(storage.unlink_description_from_id(id)?)
 }
 
 pub fn corecmd_init_current_directory() -> Result<(), CoreError> {

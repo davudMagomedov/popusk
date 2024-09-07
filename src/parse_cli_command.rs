@@ -19,6 +19,12 @@ pub fn parse_cli_command(cli_command: CliCommand) -> P_WA_Command {
         CliCommand::AddEntitybase { id } => {
             P_WA_Command::PCommand(Box::new(AddEntitybasePCMD::new(id)))
         }
+        CliCommand::AddTags { id, tags } => {
+            P_WA_Command::PCommand(Box::new(AddTagsPCMD::new(id, tags)))
+        }
+        CliCommand::AddDescription { id, description } => {
+            P_WA_Command::PCommand(Box::new(AddDescriptionPCMD::new(id, description)))
+        }
         CliCommand::DelPath { path } => P_WA_Command::PCommand(Box::new(DelPathPCMD::new(path))),
         CliCommand::DelProgress { id } => {
             P_WA_Command::PCommand(Box::new(DelProgressPCMD::new(id)))
@@ -26,6 +32,7 @@ pub fn parse_cli_command(cli_command: CliCommand) -> P_WA_Command {
         CliCommand::DelEntitybase { id } => {
             P_WA_Command::PCommand(Box::new(DelEntitybasePCMD::new(id)))
         }
+        CliCommand::DelTags { id } => P_WA_Command::PCommand(Box::new(DelTagsPCMD::new(id))),
         CliCommand::GetId { path } => P_WA_Command::PCommand(Box::new(GetIDPCMD::new(path))),
         CliCommand::GetProgress { id } => {
             P_WA_Command::PCommand(Box::new(GetProgressPCMD::new(id)))
@@ -57,9 +64,5 @@ pub fn parse_cli_command(cli_command: CliCommand) -> P_WA_Command {
             id,
             progress_update,
         } => P_WA_Command::PCommand(Box::new(ChangeProgressPCMD::new(id, progress_update))),
-        CliCommand::AddTags { id, tags } => {
-            P_WA_Command::PCommand(Box::new(AddTagsPCMD::new(id, tags)))
-        }
-        CliCommand::DelTags { id } => P_WA_Command::PCommand(Box::new(DelTagsPCMD::new(id))),
     }
 }
