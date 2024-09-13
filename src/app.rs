@@ -1,6 +1,7 @@
-use crate::config::{read_config, Config, ConfigError};
+use crate::config::{read_config_from_directory, Config, ConfigError};
 use crate::library::{Library, LibraryError};
-use crate::scripts::{open_scripts, Scripts, ScriptsError};
+use crate::localconf::{read_local_config_or_default, LocalConfigError};
+use crate::scripts::{open_scripts_from_directory, Scripts, ScriptsError};
 use crate::storage::{Storage, StorageError};
 
 use std::io::Error as IoError;
@@ -22,6 +23,8 @@ pub enum AppError {
     ScriptsError(#[from] ScriptsError),
     #[error("an I/O error occured: {0}")]
     IO(#[from] IoError),
+    #[error("local config error: {0}")]
+    LocalConfigError(#[from] LocalConfigError),
 }
 
 /// Contains all information about application state - storage, config, etc.
@@ -33,23 +36,19 @@ pub struct App {
 
 impl App {
     pub fn open() -> Result<Self, AppError> {
+        let (global_config_path,) =
+            read_local_config_or_default(&PathBuf::from("."))?.destruct_default()?;
+
         Ok(App {
             library: Library::new(Storage::open_with_working_dir(&PathBuf::from(WORKING_DIR))?),
-            config: read_config()?,
-            scripts: open_scripts()?,
+            config: read_config_from_directory(&global_config_path)?,
+            scripts: open_scripts_from_directory(&global_config_path)?,
         })
     }
 
-    pub fn create() -> Result<Self, AppError> {
-        let working_dir_path = PathBuf::from(WORKING_DIR);
-
-        std::fs::create_dir(&working_dir_path)?;
-
-        Ok(App {
-            library: Library::new(Storage::create_with_working_dir(&working_dir_path)?),
-            config: read_config()?,
-            scripts: open_scripts()?,
-        })
+    pub fn create() -> Result<(), AppError> {
+        Storage::create_with_working_dir(&PathBuf::from(WORKING_DIR))?;
+        Ok(())
     }
 
     pub fn library(&self) -> &Library {

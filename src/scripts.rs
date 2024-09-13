@@ -3,13 +3,15 @@ use crate::global_conf_directory::{configdir, GlobalConfError};
 use crate::libentity::LibEntity;
 
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use mlua::{
     Error as LuaError, Function as LuaFunction, IntoLua, Lua, LuaOptions, Result as LuaResult,
     StdLib, Value as LuaValue,
 };
 use thiserror::Error;
+
+const SCRIPTS_FILE_NAME: &str = "scripts.lua";
 
 #[derive(Error, Debug)]
 pub enum ScriptsError {
@@ -141,21 +143,28 @@ impl Scripts {
 }
 
 fn scriptfile() -> Result<PathBuf, ScriptsError> {
-    Ok(configdir()?.join("scripts.lua"))
+    Ok(configdir()?.join(SCRIPTS_FILE_NAME))
 }
 
+/// alias to `open_scripts_with_file(default_scriptfile)`
 pub fn open_scripts() -> Result<Scripts, ScriptsError> {
-    let lua = Lua::new_with(StdLib::ALL_SAFE, LuaOptions::new())?;
+    open_scripts_from_file(&scriptfile()?)
+}
 
-    let scriptfile = scriptfile()?;
-    let lua_file_content = match std::fs::read_to_string(&scriptfile) {
+/// alias to `open_scripts_with_directory(&directory.join(SCRIPTS_FILE_NAME))`
+pub fn open_scripts_from_directory(directory: &Path) -> Result<Scripts, ScriptsError> {
+    open_scripts_from_file(&directory.join(SCRIPTS_FILE_NAME))
+}
+
+pub fn open_scripts_from_file(scriptfile: &Path) -> Result<Scripts, ScriptsError> {
+    let lua = Lua::new_with(StdLib::ALL_SAFE, LuaOptions::new())?;
+    let lua_file_content = match std::fs::read_to_string(scriptfile) {
         Ok(lfc) => lfc,
         Err(io_error) if io_error.kind() == IoErrorKind::NotFound => {
-            return Err(ScriptsError::ScriptsFileWasNotFound(scriptfile));
+            return Err(ScriptsError::ScriptsFileWasNotFound(scriptfile.to_owned()));
         }
         Err(io_error) => return Err(ScriptsError::IOErrorWithScriptsFile(io_error)),
     };
-
     lua.load(lua_file_content).exec()?;
 
     Ok(Scripts { lua })

@@ -14,6 +14,7 @@ mod global_conf_directory;
 mod id;
 mod libentity;
 mod library;
+mod localconf;
 mod parse_cli;
 mod parse_cli_command;
 mod pcommand;
