@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-#![cfg(unix)]
 
 use clap::Parser;
 
