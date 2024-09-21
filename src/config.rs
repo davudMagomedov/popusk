@@ -24,16 +24,11 @@ pub enum ConfigError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     document_extension: Box<[String]>,
-    viewer: Box<[String]>,
 }
 
 impl Config {
     pub fn document_extension(&self) -> &[String] {
         &self.document_extension
-    }
-
-    pub fn viewer(&self) -> &[String] {
-        &self.viewer
     }
 }
 

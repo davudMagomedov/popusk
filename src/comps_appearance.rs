@@ -1,5 +1,5 @@
 use crate::entity_base::{EntityBase, EntityType, Tag};
-use crate::error_ext::ComResult;
+use crate::error_ext::{ComError, ComResult};
 use crate::progress::Progress;
 use crate::progress_update::ProgressUpdate;
 
@@ -14,6 +14,18 @@ pub fn entitytype_to_string(etype: EntityType) -> String {
         EntityType::Section => STRINGIFIED_ETYPE_SECTION.to_string(),
         EntityType::Regular => STRINGIFIED_ETYPE_REGULAR.to_string(),
         EntityType::Document => STRINGIFIED_ETYPE_DOCUMENT.to_string(),
+    }
+}
+
+pub fn entitytype_from_string(string: &str) -> ComResult<EntityType> {
+    match string {
+        STRINGIFIED_ETYPE_DOCUMENT => Ok(EntityType::Document),
+        STRINGIFIED_ETYPE_REGULAR => Ok(EntityType::Regular),
+        STRINGIFIED_ETYPE_SECTION => Ok(EntityType::Section),
+        _ => Err(ComError::from(format!(
+            "couldn't recognize '{}' as entity type",
+            string
+        ))),
     }
 }
 

@@ -32,3 +32,4 @@ Scripts file has path `$HOME/.config/popusk/scripts.lua` and has the following c
 1. Function `look_output(libentity: LibEntity, context: Context) -> string`. Forms output for the `look` command.
 2. Function `list_output_narrow(libentities: Array<LibEntity>, context: Context) -> string`. Forms output for the `list` command.
 3. Function `list_output_wide(libentities: Array<LibEntity>, context: Context) -> string`. Forms output for the `list --wide` command.
+4. Function `open_libentity(libentity: LibEntity, context: Context) -> Progress`. Opens library entity for `open` command and returns a new progress.

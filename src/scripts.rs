@@ -1,17 +1,23 @@
 use crate::comps_appearance::entitytype_to_string;
-use crate::global_conf_directory::{configdir, GlobalConfError};
+use crate::global_conf_directory::GlobalConfError;
 use crate::libentity::LibEntity;
+use crate::progress::Progress;
 
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
 use std::path::{Path, PathBuf};
 
 use mlua::{
-    Error as LuaError, Function as LuaFunction, IntoLua, Lua, LuaOptions, Result as LuaResult,
-    StdLib, Value as LuaValue,
+    Error as LuaError, FromLua, Function as LuaFunction, IntoLua, Lua, LuaOptions,
+    Result as LuaResult, StdLib, Value as LuaValue,
 };
 use thiserror::Error;
 
 const SCRIPTS_FILE_NAME: &str = "scripts.lua";
+
+const LOOK_SCRIPT_FUNCTION_NAME: &str = "look_output";
+const OPEN_SCRIPT_FUNCTION_NAME: &str = "open_libentity";
+const LIST_NARROW_SCRIPT_FUNCTION_NAME: &str = "list_output_narrow";
+const LIST_WIDE_SCRIPT_FUNCTION_NAME: &str = "list_output_wide";
 
 #[derive(Error, Debug)]
 pub enum ScriptsError {
@@ -58,6 +64,30 @@ impl IntoLua for Context {
     }
 }
 
+impl IntoLua for Progress {
+    fn into_lua(self, lua: &Lua) -> LuaResult<LuaValue> {
+        let progress_table = lua.create_table()?;
+
+        progress_table.set("passed", self.passed())?;
+        progress_table.set("ceiling", self.ceiling())?;
+
+        Ok(LuaValue::Table(progress_table))
+    }
+}
+
+impl FromLua for Progress {
+    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
+        let LuaValue::Table(table) = value else {
+            return Err(LuaError::UserDataTypeMismatch);
+        };
+
+        let passed = table.get::<usize>("passed")?;
+        let ceiling = table.get::<usize>("ceiling")?;
+
+        Ok(Progress::with_passed(passed, ceiling))
+    }
+}
+
 impl IntoLua for LibEntity {
     fn into_lua(self, lua: &Lua) -> LuaResult<LuaValue> {
         let libentity_table = lua.create_table()?;
@@ -69,12 +99,7 @@ impl IntoLua for LibEntity {
         libentity_table.set("etype", entitytype_to_string(self.etype()))?;
 
         if let Some(progress) = self.progress() {
-            let progress_table = lua.create_table()?;
-
-            progress_table.set("passed", progress.passed())?;
-            progress_table.set("ceiling", progress.ceiling())?;
-
-            libentity_table.set("progress", progress_table)?;
+            libentity_table.set("progress", progress.into_lua(lua)?)?;
         }
 
         if let Some(description) = self.description() {
@@ -98,9 +123,30 @@ impl Scripts {
         libentity: LibEntity,
         context: Context,
     ) -> Result<String, ScriptsError> {
-        let look_output_func = self.lua.globals().get::<LuaFunction>("look_output")?;
+        let look_output_func = self
+            .lua
+            .globals()
+            .get::<LuaFunction>(LOOK_SCRIPT_FUNCTION_NAME)?;
         match look_output_func.call::<String>((libentity, context)) {
             Ok(string) => Ok(string),
+            Err(LuaError::RuntimeError(runtime_err_msg)) => {
+                return Err(ScriptsError::LuaRuntimeError(runtime_err_msg))
+            }
+            Err(lua_error) => return Err(lua_error.into()),
+        }
+    }
+
+    pub fn open_libentity(
+        &self,
+        libentity: LibEntity,
+        context: Context,
+    ) -> Result<Progress, ScriptsError> {
+        let open_libentity_func = self
+            .lua
+            .globals()
+            .get::<LuaFunction>(OPEN_SCRIPT_FUNCTION_NAME)?;
+        match open_libentity_func.call::<Progress>((libentity, context)) {
+            Ok(progress) => Ok(progress),
             Err(LuaError::RuntimeError(runtime_err_msg)) => {
                 return Err(ScriptsError::LuaRuntimeError(runtime_err_msg))
             }
@@ -116,7 +162,7 @@ impl Scripts {
         let list_output_narrow_func = self
             .lua
             .globals()
-            .get::<LuaFunction>("list_output_narrow")?;
+            .get::<LuaFunction>(LIST_NARROW_SCRIPT_FUNCTION_NAME)?;
         match list_output_narrow_func.call::<String>((libentities, context)) {
             Ok(string) => Ok(string),
             Err(LuaError::RuntimeError(runtime_err_msg)) => {
@@ -131,7 +177,10 @@ impl Scripts {
         libentities: Vec<LibEntity>,
         context: Context,
     ) -> Result<String, ScriptsError> {
-        let list_output_wide_func = self.lua.globals().get::<LuaFunction>("list_output_wide")?;
+        let list_output_wide_func = self
+            .lua
+            .globals()
+            .get::<LuaFunction>(LIST_WIDE_SCRIPT_FUNCTION_NAME)?;
         match list_output_wide_func.call::<String>((libentities, context)) {
             Ok(string) => Ok(string),
             Err(LuaError::RuntimeError(runtime_err_msg)) => {
@@ -140,15 +189,6 @@ impl Scripts {
             Err(lua_error) => return Err(lua_error.into()),
         }
     }
-}
-
-fn scriptfile() -> Result<PathBuf, ScriptsError> {
-    Ok(configdir()?.join(SCRIPTS_FILE_NAME))
-}
-
-/// alias to `open_scripts_with_file(default_scriptfile)`
-pub fn open_scripts() -> Result<Scripts, ScriptsError> {
-    open_scripts_from_file(&scriptfile()?)
 }
 
 /// alias to `open_scripts_with_directory(&directory.join(SCRIPTS_FILE_NAME))`
