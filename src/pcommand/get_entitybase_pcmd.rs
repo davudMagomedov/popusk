@@ -1,6 +1,6 @@
 use crate::app::App;
 use crate::comps_appearance::entitybase_to_fullinfo_string;
-use crate::id::ID;
+use crate::types::ID;
 
 use super::{PCommand, PExecutionError};
 

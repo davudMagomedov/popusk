@@ -1,7 +1,7 @@
 use super::{StorageError, Translator};
 
 use crate::error_ext::ComError;
-use crate::id::ID;
+use crate::types::ID;
 
 use std::ffi::OsStr;
 use std::os::unix::ffi::{OsStrExt, OsStringExt};

@@ -1,6 +1,4 @@
-use crate::entity_base::EntityType;
-use crate::id::ID;
-use crate::progress::Progress;
+use crate::types::{EntityType, Progress, ID};
 
 use std::path::PathBuf;
 

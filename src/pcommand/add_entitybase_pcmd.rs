@@ -1,8 +1,7 @@
 use super::{PCommand, PExecutionError};
 
 use crate::app::App;
-use crate::entity_base::EntityBase;
-use crate::id::ID;
+use crate::types::{EntityBase, ID};
 
 use std::io::{stdin, Read};
 

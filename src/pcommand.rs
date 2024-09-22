@@ -14,9 +14,9 @@ use crate::app::{App, AppError};
 use crate::core_commands::CoreError;
 use crate::error_ext::ComError;
 use crate::library::LibraryError;
-use crate::progress_update::ProgressUpdateError;
 use crate::scripts::ScriptsError;
 use crate::storage::StorageError;
+use crate::types::ProgressUpdateError;
 
 use std::io::Error as IoError;
 

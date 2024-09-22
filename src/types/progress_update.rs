@@ -1,4 +1,4 @@
-use crate::progress::Progress;
+use crate::types::Progress;
 
 use thiserror::Error;
 

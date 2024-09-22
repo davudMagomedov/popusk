@@ -1,10 +1,8 @@
 use crate::app::App;
 use crate::comps_appearance::parse_string_to_tags;
 use crate::comps_interaction::libentity_has_progress;
-use crate::entity_base::{EntityType, Tag};
 use crate::error_ext::ComResult;
-use crate::libentity::LibEntityData;
-use crate::progress::Progress;
+use crate::types::{EntityType, LibEntityData, Progress, Tag};
 
 use super::{PCommand, PExecutionError};
 

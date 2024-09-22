@@ -1,8 +1,7 @@
 use super::{filename_from_id, id_from_filename, StorageError, Translator};
 
-use crate::entity_base::*;
 use crate::error_ext::*;
-use crate::id::ID;
+use crate::types::{EntityBase, ID};
 
 use std::fs::{File, OpenOptions};
 use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Write};

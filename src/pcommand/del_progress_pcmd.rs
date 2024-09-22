@@ -2,7 +2,7 @@ use super::{PCommand, PExecutionError};
 
 use crate::app::App;
 use crate::comps_appearance::progress_to_string;
-use crate::id::ID;
+use crate::types::ID;
 
 #[derive(Debug, Clone)]
 pub struct DelProgressPCMD {

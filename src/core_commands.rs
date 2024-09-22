@@ -1,8 +1,6 @@
 use crate::app::AppError;
-use crate::entity_base::EntityBase;
-use crate::id::ID;
-use crate::progress::Progress;
 use crate::storage::{Storage, StorageError};
+use crate::types::{EntityBase, Progress, ID};
 
 use std::path::PathBuf;
 

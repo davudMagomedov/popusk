@@ -7,20 +7,16 @@ mod comps_appearance;
 mod comps_interaction;
 mod config;
 mod core_commands;
-mod entity_base;
 mod error_ext;
 mod global_conf_directory;
-mod id;
-mod libentity;
 mod library;
 mod localconf;
 mod parse_cli;
 mod parse_cli_command;
 mod pcommand;
-mod progress;
-mod progress_update;
 mod scripts;
 mod storage;
+mod types;
 mod wacommand; // w(ithout)a(pplication)command
 
 use app::App;

@@ -1,5 +1,5 @@
 use crate::error_ext::ComResult;
-use crate::id::ID;
+use crate::types::ID;
 
 use std::fs::OpenOptions;
 use std::io::Write;

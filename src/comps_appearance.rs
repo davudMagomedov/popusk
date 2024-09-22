@@ -1,7 +1,5 @@
-use crate::entity_base::{EntityBase, EntityType, Tag};
 use crate::error_ext::{ComError, ComResult};
-use crate::progress::Progress;
-use crate::progress_update::ProgressUpdate;
+use crate::types::{EntityBase, EntityType, Progress, ProgressUpdate, Tag};
 
 const STRINGIFIED_ETYPE_SECTION: &str = "section";
 const STRINGIFIED_ETYPE_REGULAR: &str = "regular";

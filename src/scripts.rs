@@ -1,7 +1,7 @@
 use crate::comps_appearance::entitytype_to_string;
 use crate::global_conf_directory::GlobalConfError;
-use crate::libentity::LibEntity;
-use crate::progress::Progress;
+use crate::types::LibEntity;
+use crate::types::Progress;
 
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
 use std::path::{Path, PathBuf};

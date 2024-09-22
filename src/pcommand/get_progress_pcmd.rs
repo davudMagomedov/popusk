@@ -1,7 +1,7 @@
 use crate::app::App;
 use crate::comps_appearance::progress_to_string;
 use crate::error_ext::ComError;
-use crate::id::ID;
+use crate::types::ID;
 
 use super::{PCommand, PExecutionError};
 

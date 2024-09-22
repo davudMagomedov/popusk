@@ -1,9 +1,6 @@
 use crate::comps_interaction::libentity_has_progress;
-use crate::entity_base::{EntityBase, EntityType, Tag};
-use crate::id::ID;
-use crate::libentity::{LibEntity, LibEntityData};
-use crate::progress::Progress;
 use crate::storage::{Storage, StorageError};
+use crate::types::{EntityBase, EntityType, LibEntity, LibEntityData, Progress, Tag, ID};
 
 use std::path::PathBuf;
 

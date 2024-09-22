@@ -1,8 +1,7 @@
 use super::{PCommand, PExecutionError};
 
 use crate::app::App;
-use crate::id::ID;
-use crate::progress::Progress;
+use crate::types::{Progress, ID};
 
 /// UNSAFE COMMAND
 #[derive(Debug, Clone)]

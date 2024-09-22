@@ -2,7 +2,7 @@ use super::{PCommand, PExecutionError};
 
 use crate::app::App;
 use crate::comps_appearance::entitybase_to_oneline_string;
-use crate::id::ID;
+use crate::types::ID;
 
 /// UNSAFE COMMAND
 #[derive(Debug, Clone)]

@@ -1,7 +1,6 @@
-use crate::entity_base::*;
 use crate::error_ext::ComError;
-use crate::id::{IDError, ID};
-use crate::progress::Progress;
+use crate::types::Progress;
+use crate::types::{EntityBase, IDError, ID};
 
 use std::ffi::OsString;
 use std::io::Error as IoError;

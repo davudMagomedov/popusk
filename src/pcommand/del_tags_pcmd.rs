@@ -1,8 +1,7 @@
 use crate::app::App;
-use crate::entity_base::Tag;
 use crate::error_ext::ComError;
 use crate::error_ext::CommonizeResultExt;
-use crate::id::ID;
+use crate::types::{Tag, ID};
 
 use super::{PCommand, PExecutionError};
 

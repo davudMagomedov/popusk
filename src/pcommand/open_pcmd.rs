@@ -1,9 +1,9 @@
 use super::{PCommand, PExecutionError};
 
 use crate::app::App;
-use crate::entity_base::EntityType;
 use crate::error_ext::ComError;
 use crate::scripts::Context;
+use crate::types::EntityType;
 
 use std::io::{stdin, stdout, Error as IoError, Write};
 use std::path::PathBuf;
