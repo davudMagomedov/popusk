@@ -93,7 +93,7 @@ impl AddLibentityPCMD {
                 .map(|t| t.to_string_lossy().to_string())
                 .unwrap_or_else(|| "".to_string());
 
-            if app.config().document_extension().contains(&extension) {
+            if app.scripts().is_document(extension)? {
                 Ok(EntityType::Document)
             } else {
                 Ok(EntityType::Regular)

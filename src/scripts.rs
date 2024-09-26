@@ -18,6 +18,7 @@ const LOOK_SCRIPT_FUNCTION_NAME: &str = "look_output";
 const OPEN_SCRIPT_FUNCTION_NAME: &str = "open_libentity";
 const LIST_NARROW_SCRIPT_FUNCTION_NAME: &str = "list_output_narrow";
 const LIST_WIDE_SCRIPT_FUNCTION_NAME: &str = "list_output_wide";
+const IS_DOCUMENT_SCRIPT_FUNCTION_NAME: &str = "is_document";
 
 #[derive(Error, Debug)]
 pub enum ScriptsError {
@@ -183,6 +184,21 @@ impl Scripts {
             .get::<LuaFunction>(LIST_WIDE_SCRIPT_FUNCTION_NAME)?;
         match list_output_wide_func.call::<String>((libentities, context)) {
             Ok(string) => Ok(string),
+            Err(LuaError::RuntimeError(runtime_err_msg)) => {
+                return Err(ScriptsError::LuaRuntimeError(runtime_err_msg))
+            }
+            Err(lua_error) => return Err(lua_error.into()),
+        }
+    }
+
+    pub fn is_document(&self, extension: String) -> Result<bool, ScriptsError> {
+        let is_document_func = self
+            .lua
+            .globals()
+            .get::<LuaFunction>(IS_DOCUMENT_SCRIPT_FUNCTION_NAME)?;
+
+        match is_document_func.call::<bool>(extension) {
+            Ok(is_document) => Ok(is_document),
             Err(LuaError::RuntimeError(runtime_err_msg)) => {
                 return Err(ScriptsError::LuaRuntimeError(runtime_err_msg))
             }

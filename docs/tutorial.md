@@ -1,7 +1,7 @@
 # Tutorial
 
 Once you have installed the binary, create a folder `~/.config/popusk/`.
-Next, create files `scripts.lua` and `popusk.toml` in the directory. Look at [this](lua_script.md) and [this](config.md).
+Next, create files `scripts.lua` and in the directory. Look at [this](lua_script.md) for next steps.
 
 ## Usage
 
@@ -19,7 +19,7 @@ There are visual commands (i.e. the main purpose of which is to display aestheti
 
 **Popusk** operates with so-called *Library Entities*.
 **Library entity** is an addition to a file. It includes name, tags, type, etc (iow addition information). It points to a file.
-**Libentity** has following fields (only public):
+**Libentity** has following fields:
 1. *Path*. Points to a file the *libentity* is connected to.
 2. *ID*. Just unique identifier for the *libentity*.
 3. *Name*. Name of the *libentity*.
@@ -30,6 +30,12 @@ There are visual commands (i.e. the main purpose of which is to display aestheti
     - *Regular file*. Everything else.
 6. *Progress*. Exists only if the *entity type* is *document* (because *section* and *regular file* can't be opened).
 7. *Description*. Optional.
+
+### Progress
+
+A library entity with `etype == "document"` must have a *progress*. Otherwise, the library entity must not have a *progress*.
+
+Progress contains *passed* and *ceiling* values. For example, let's have a book with 571 pages in total and your imaginary bookmark is on 184 page. This information is kept in *progress* with `passed = 184` and `ceiling = 571`.
 
 ## Low-level commands
 

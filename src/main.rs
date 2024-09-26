@@ -5,7 +5,6 @@ use clap::Parser;
 mod app;
 mod comps_appearance;
 mod comps_interaction;
-mod config;
 mod core_commands;
 mod error_ext;
 mod global_conf_directory;

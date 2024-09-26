@@ -1,7 +1,11 @@
 # Lua scripts
+
 The **popusk** program uses [lua](https://www.lua.org/) to help for some commands. For example, *decorative commands* such as `look` and `list` takes lua scripts to produce their output.
+
 ## Types
+
 ### Progress
+
 Progress of document.
 **Fields**
 1. `passed`. Integer.
@@ -11,12 +15,14 @@ Progress of document.
 2. `ceiling >= 1`.
 
 ### Context
+
 Contains context information.
 **Fields**:
 1. `tshape_w`. Width of terminal. Integer.
 2. `tshape_h`. Height of terminal. Integer.
 
 ### LibEntity
+
 Contains information about library entity in the library.
 **Fields**:
 1. `path`. String.
@@ -28,8 +34,10 @@ Contains information about library entity in the library.
 7. `description`. Optional string.
 
 ## Scripts file
+
 Scripts file has path `$HOME/.config/popusk/scripts.lua` and has the following content (note that definitions of the functions are abstract and differ from valid *lua*-definitions).
 1. Function `look_output(libentity: LibEntity, context: Context) -> string`. Forms output for the `look` command.
 2. Function `list_output_narrow(libentities: Array<LibEntity>, context: Context) -> string`. Forms output for the `list` command.
 3. Function `list_output_wide(libentities: Array<LibEntity>, context: Context) -> string`. Forms output for the `list --wide` command.
 4. Function `open_libentity(libentity: LibEntity, context: Context) -> Progress`. Opens library entity for `open` command and returns a new progress.
+5. Function `is_document(extension: string) -> boolean`. Returns `true` if the given extension falls under the document category, otherwise the function must return `false`.

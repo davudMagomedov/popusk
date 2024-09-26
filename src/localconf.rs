@@ -1,6 +1,7 @@
 use crate::global_conf_directory::{configdir, GlobalConfError};
 
 use std::fs::read_to_string as read_file_to_string;
+use std::hint::unreachable_unchecked;
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
 use std::path::{Path, PathBuf};
 
@@ -64,7 +65,7 @@ impl LocalConfig {
             global_config_path,
         } = self
         else {
-            unreachable!();
+            unsafe { unreachable_unchecked() }
         };
 
         Ok((global_config_path,))
