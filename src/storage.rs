@@ -1,6 +1,5 @@
 use crate::error_ext::ComError;
-use crate::types::Progress;
-use crate::types::{EntityBase, IDError, ID};
+use crate::types::{EntityBase, FreeData, IDError, Progress, ID};
 
 use std::ffi::OsString;
 use std::io::Error as IoError;
@@ -12,12 +11,14 @@ use thiserror::Error;
 mod available_id_list;
 mod id_description_translator;
 mod id_entitybase_translator;
+mod id_freedata_translator;
 mod id_progress_translator;
 mod path_id_translator;
 
 use available_id_list::AvailableIDList;
 use id_description_translator::{IDDescTError, IDDescriptionTranslator};
 use id_entitybase_translator::{IDEntitybaseTError, IDEntitybaseTranslator};
+use id_freedata_translator::{IDFreeDataTError, IDFreeDataTranslator};
 use id_progress_translator::{IDProgressTError, IDProgressTranslator};
 use path_id_translator::{PathIDTError, PathIdTranslator};
 
@@ -42,6 +43,8 @@ pub enum StorageError {
     PathIDT(#[from] PathIDTError),
     #[error("id->description translator: {0}")]
     IDDescT(#[from] IDDescTError),
+    #[error("id->freedata translator: {0}")]
+    IDFreeDataT(#[from] IDFreeDataTError),
     #[error("io: {0}")]
     IO(#[from] IoError),
 
@@ -71,6 +74,7 @@ pub struct Storage {
     id_entitybase_translator: Box<dyn Translator<ID, EntityBase>>,
     id_progress_translator: Box<dyn Translator<ID, Progress>>,
     id_description_translator: Box<dyn Translator<ID, String>>,
+    id_freedata_translator: Box<dyn Translator<ID, FreeData>>,
     ail: AvailableIDList,
 }
 
@@ -83,6 +87,7 @@ impl Storage {
             id_entitybase_translator: Box::new(IDEntitybaseTranslator::open(&working_dir)?),
             id_progress_translator: Box::new(IDProgressTranslator::open(&working_dir)?),
             id_description_translator: Box::new(IDDescriptionTranslator::open(&working_dir)?),
+            id_freedata_translator: Box::new(IDFreeDataTranslator::open(&working_dir)?),
             ail: AvailableIDList::open(&working_dir)?,
         })
     }
@@ -96,6 +101,7 @@ impl Storage {
             id_entitybase_translator: Box::new(IDEntitybaseTranslator::create(&working_dir)?),
             id_progress_translator: Box::new(IDProgressTranslator::create(&working_dir)?),
             id_description_translator: Box::new(IDDescriptionTranslator::create(&working_dir)?),
+            id_freedata_translator: Box::new(IDFreeDataTranslator::create(&working_dir)?),
             ail: AvailableIDList::create(&working_dir)?,
         })
     }
@@ -111,6 +117,7 @@ impl Storage {
             id_entitybase_translator: Box::new(IDEntitybaseTranslator::open(working_dir)?),
             id_progress_translator: Box::new(IDProgressTranslator::open(working_dir)?),
             id_description_translator: Box::new(IDDescriptionTranslator::open(working_dir)?),
+            id_freedata_translator: Box::new(IDFreeDataTranslator::open(&working_dir)?),
             ail: AvailableIDList::open(&working_dir)?,
         })
     }
@@ -122,6 +129,7 @@ impl Storage {
             id_entitybase_translator: Box::new(IDEntitybaseTranslator::create(working_dir)?),
             id_progress_translator: Box::new(IDProgressTranslator::create(working_dir)?),
             id_description_translator: Box::new(IDDescriptionTranslator::create(working_dir)?),
+            id_freedata_translator: Box::new(IDFreeDataTranslator::create(&working_dir)?),
             ail: AvailableIDList::create(working_dir)?,
         })
     }
@@ -156,14 +164,39 @@ impl Storage {
             }
             Err(other_error) => return Err(other_error.into()),
         };
+        let id_freedata_translator = match IDFreeDataTranslator::create(working_dir) {
+            Ok(ift) => ift,
+            Err(IDFreeDataTError::TranslatorAlreadyExists) => {
+                IDFreeDataTranslator::open(working_dir)?
+            }
+            Err(other_error) => return Err(other_error.into()),
+        };
 
         Ok(Storage {
             path_id_translator: Box::new(path_id_translator),
             id_progress_translator: Box::new(id_progress_translator),
             id_entitybase_translator: Box::new(id_entitybase_translator),
             id_description_translator: Box::new(id_description_translator),
+            id_freedata_translator: Box::new(id_freedata_translator),
             ail,
         })
+    }
+
+    pub fn link_freedata_to_id(&mut self, id: ID, freedata: FreeData) -> Result<(), StorageError> {
+        self.id_freedata_translator.add_translation(id, freedata)
+    }
+
+    pub fn unlink_freedata_to_id(&mut self, id: ID) -> Result<FreeData, StorageError> {
+        self.id_freedata_translator.del_translation(id)
+    }
+
+    pub fn update_freedata(
+        &mut self,
+        id: ID,
+        new_freedata: FreeData,
+    ) -> Result<FreeData, StorageError> {
+        self.id_freedata_translator
+            .update_translation(id, new_freedata)
     }
 
     pub fn link_id_to_path(&mut self, path: PathBuf) -> Result<ID, StorageError> {
@@ -258,6 +291,10 @@ impl Storage {
 
     pub fn get_description(&self, id: ID) -> Result<Option<String>, StorageError> {
         self.id_description_translator.translate(id)
+    }
+
+    pub fn get_freedata(&self, id: ID) -> Result<Option<FreeData>, StorageError> {
+        self.id_freedata_translator.translate(id)
     }
 
     pub fn keys_path(&self) -> Result<Vec<PathBuf>, StorageError> {
