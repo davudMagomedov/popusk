@@ -67,5 +67,8 @@ pub fn parse_cli_command(cli_command: CliCommand) -> P_WA_Command {
             id,
             progress_update,
         } => P_WA_Command::PCommand(Box::new(ChangeProgressPCMD::new(id, progress_update))),
+        CliCommand::RenameLibentity { path, new_path } => {
+            P_WA_Command::PCommand(Box::new(RenameLibentityPCMD::new(path, new_path)))
+        }
     }
 }

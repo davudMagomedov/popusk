@@ -42,6 +42,7 @@ mod get_progress_pcmd;
 mod list_pcmd;
 mod look_pcmd;
 mod open_pcmd;
+mod rename_libentity_pcmd;
 mod status_pcmd;
 
 pub use add_description_pcmd::*;
@@ -63,6 +64,7 @@ pub use get_progress_pcmd::*;
 pub use list_pcmd::*;
 pub use look_pcmd::*;
 pub use open_pcmd::*;
+pub use rename_libentity_pcmd::*;
 pub use status_pcmd::*;
 
 #[derive(Debug, Error)]

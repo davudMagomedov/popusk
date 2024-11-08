@@ -118,4 +118,7 @@ pub enum CliCommand {
     /// Delete tags associated with the given ID
     #[command(name = "del_tags")]
     DelTags { id: ID },
+    /// Move library entity to new place
+    #[command(name = "rename")]
+    RenameLibentity { path: PathBuf, new_path: PathBuf },
 }
