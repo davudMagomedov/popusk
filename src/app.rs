@@ -1,10 +1,12 @@
 use crate::library::{Library, LibraryError};
-use crate::localconf::{read_local_config_or_default, LocalConfigError};
+use crate::localconf::{
+    read_filled_local_config, read_local_config, LocalConfigError, LocalConfigFilled,
+};
 use crate::scripts::{open_scripts_from_directory, Scripts, ScriptsError};
 use crate::storage::{Storage, StorageError};
 
 use std::io::Error as IoError;
-use std::path::PathBuf;
+use std::path::Path;
 
 use thiserror::Error;
 
@@ -28,21 +30,33 @@ pub enum AppError {
 pub struct App {
     library: Library,
     scripts: Scripts,
+    local_config: LocalConfigFilled,
 }
 
 impl App {
+    // alias to `App::open_with(CURRENT_DIR)`
     pub fn open() -> Result<Self, AppError> {
-        let (global_config_path,) =
-            read_local_config_or_default(&PathBuf::from("."))?.destruct_default()?;
+        App::open_with(Path::new("."))
+    }
+
+    // alias to `App::create_with(CURRENT_DIR)`
+    pub fn create() -> Result<(), AppError> {
+        App::create_with(Path::new("."))
+    }
+
+    pub fn open_with(library_path: &Path) -> Result<Self, AppError> {
+        let local_config = read_filled_local_config(library_path)?;
+        let storage = Storage::open_with_working_dir(&library_path.join(WORKING_DIR))?;
 
         Ok(App {
-            library: Library::new(Storage::open_with_working_dir(&PathBuf::from(WORKING_DIR))?),
-            scripts: open_scripts_from_directory(&global_config_path)?,
+            library: Library::new(storage),
+            scripts: open_scripts_from_directory(local_config.global_config_path())?,
+            local_config,
         })
     }
 
-    pub fn create() -> Result<(), AppError> {
-        Storage::create_with_working_dir(&PathBuf::from(WORKING_DIR))?;
+    pub fn create_with(library_path: &Path) -> Result<(), AppError> {
+        let _storage = Storage::create_with_working_dir(&library_path.join(WORKING_DIR))?;
         Ok(())
     }
 
