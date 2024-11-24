@@ -1,8 +1,39 @@
+//! ## Dev docs
+//!
+//! ### If you want to add a new Translator
+//! 1. Make sure the Translator is useful. I think any translator is useless now
+//!    because of `FreeDataTranslator` (translator that contains key-value table).
+//! 2. Make a new file in 'storage' directory, link it (place `mod <your file>` in
+//!    certain place) to this module, and follow the actions:
+//! 3. Follow the action references:
+//! ```plain
+//! Add new translator
+//!     1. Make error type for new translator according to `StorageError` and
+//!        examples of other translators.
+//!     2. Add appropriate field to `Storage` structure.
+//!         1. Checkout all the places where `Storage { ... }` is used and change
+//!            if need.
+//!     3. Make needed `Storage` method such as `get_*`, `update_*`, etc.
+//! ```
+//!
+//! ### If you want to add a new Storage field
+//! 1. Take in account that the field you're creating should be lazy (initializing
+//!    on first use). For example, `AvailableIDList::open(...)` doesn't read any
+//!    file, but `AvailableIDList::open(...).grab_id()` does because it's the first
+//!    use of new AIL instance.
+//! 2. Follow the action references:
+//! ```plain
+//! Add new field type:
+//!     1. Add new field with early created type to `Storage` struct.
+//!         1. Checkout all the places where `Storage { ... }` is used and change
+//!            if need.
+//! ```
+
 use crate::error_ext::ComError;
 use crate::types::{EntityBase, FreeData, IDError, Progress, ID};
 
 use std::ffi::OsString;
-use std::io::Error as IoError;
+use std::io::{Error as IoError, ErrorKind as IoErrorKind};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -45,9 +76,14 @@ pub enum StorageError {
     IDDescT(#[from] IDDescTError),
     #[error("id->freedata translator: {0}")]
     IDFreeDataT(#[from] IDFreeDataTError),
+
+    #[error("storage already exists")]
+    StorageAlreadyExists,
+    #[error("storage don't exist")]
+    StorageDoNotExist,
+
     #[error("io: {0}")]
     IO(#[from] IoError),
-
     #[error("{0}")]
     Other(#[from] ComError),
 }
@@ -80,30 +116,11 @@ pub struct Storage {
 
 impl Storage {
     pub fn open() -> Result<Self, StorageError> {
-        let working_dir = PathBuf::from(DEFAULT_WORKING_DIR);
-
-        Ok(Storage {
-            path_id_translator: Box::new(PathIdTranslator::open(&working_dir)?),
-            id_entitybase_translator: Box::new(IDEntitybaseTranslator::open(&working_dir)?),
-            id_progress_translator: Box::new(IDProgressTranslator::open(&working_dir)?),
-            id_description_translator: Box::new(IDDescriptionTranslator::open(&working_dir)?),
-            id_freedata_translator: Box::new(IDFreeDataTranslator::open(&working_dir)?),
-            ail: AvailableIDList::open(&working_dir)?,
-        })
+        Storage::open_with_working_dir(&PathBuf::from(DEFAULT_WORKING_DIR))
     }
 
     pub fn create() -> Result<Self, StorageError> {
-        let working_dir = PathBuf::from(DEFAULT_WORKING_DIR);
-        std::fs::create_dir(&working_dir)?;
-
-        Ok(Storage {
-            path_id_translator: Box::new(PathIdTranslator::create(&working_dir)?),
-            id_entitybase_translator: Box::new(IDEntitybaseTranslator::create(&working_dir)?),
-            id_progress_translator: Box::new(IDProgressTranslator::create(&working_dir)?),
-            id_description_translator: Box::new(IDDescriptionTranslator::create(&working_dir)?),
-            id_freedata_translator: Box::new(IDFreeDataTranslator::create(&working_dir)?),
-            ail: AvailableIDList::create(&working_dir)?,
-        })
+        Storage::create_with_working_dir(&PathBuf::from(DEFAULT_WORKING_DIR))
     }
 
     /// The same as `Self::update_with_working_dir` but working direcotry is set to default one.
@@ -112,6 +129,10 @@ impl Storage {
     }
 
     pub fn open_with_working_dir(working_dir: &Path) -> Result<Self, StorageError> {
+        if !working_dir.exists() {
+            return Err(StorageError::StorageDoNotExist);
+        }
+
         Ok(Storage {
             path_id_translator: Box::new(PathIdTranslator::open(working_dir)?),
             id_entitybase_translator: Box::new(IDEntitybaseTranslator::open(working_dir)?),
@@ -123,7 +144,13 @@ impl Storage {
     }
 
     pub fn create_with_working_dir(working_dir: &Path) -> Result<Self, StorageError> {
-        std::fs::create_dir(&working_dir)?;
+        match std::fs::create_dir(working_dir) {
+            Ok(_) => (),
+            Err(err) if err.kind() == IoErrorKind::AlreadyExists =>
+                return Err(StorageError::StorageAlreadyExists),
+            Err(err) => return Err(err.into())
+        }
+
         Ok(Storage {
             path_id_translator: Box::new(PathIdTranslator::create(working_dir)?),
             id_entitybase_translator: Box::new(IDEntitybaseTranslator::create(working_dir)?),
@@ -137,40 +164,33 @@ impl Storage {
     /// This function is the middle between `Self::create` and `Self::open`. It openes the working
     /// directory and creates missing elements if possible.
     pub fn update_with_working_dir(working_dir: &Path) -> Result<Self, StorageError> {
+        macro_rules! create_or_open {
+            ($translator:ident, $match_translator_error:path) => {
+                match $translator::create(working_dir) {
+                    Ok(pit) => pit,
+                    Err($match_translator_error) => $translator::open(working_dir)?,
+                    Err(other_error) => return Err(other_error.into()),
+                }
+            }
+        }
+
         let ail = AvailableIDList::open(working_dir)?;
-        let path_id_translator = match PathIdTranslator::create(working_dir) {
-            Ok(pit) => pit,
-            Err(PathIDTError::TranslatorAlreadyExists) => PathIdTranslator::open(working_dir)?,
-            Err(other_error) => return Err(other_error.into()),
-        };
-        let id_entitybase_translator = match IDEntitybaseTranslator::create(working_dir) {
-            Ok(iet) => iet,
-            Err(IDEntitybaseTError::TranslatorAlreadyExists) => {
-                IDEntitybaseTranslator::open(working_dir)?
-            }
-            Err(other_error) => return Err(other_error.into()),
-        };
-        let id_progress_translator = match IDProgressTranslator::create(working_dir) {
-            Ok(ipt) => ipt,
-            Err(IDProgressTError::TranslatorAlreadyExists) => {
-                IDProgressTranslator::open(working_dir)?
-            }
-            Err(other_error) => return Err(other_error.into()),
-        };
-        let id_description_translator = match IDDescriptionTranslator::create(working_dir) {
-            Ok(idt) => idt,
-            Err(IDDescTError::TranslatorAlreadyExists) => {
-                IDDescriptionTranslator::open(working_dir)?
-            }
-            Err(other_error) => return Err(other_error.into()),
-        };
-        let id_freedata_translator = match IDFreeDataTranslator::create(working_dir) {
-            Ok(ift) => ift,
-            Err(IDFreeDataTError::TranslatorAlreadyExists) => {
-                IDFreeDataTranslator::open(working_dir)?
-            }
-            Err(other_error) => return Err(other_error.into()),
-        };
+        let path_id_translator = create_or_open!(
+            PathIdTranslator,
+            PathIDTError::TranslatorAlreadyExists);
+        let id_entitybase_translator = create_or_open!(
+            IDEntitybaseTranslator,
+            IDEntitybaseTError::TranslatorAlreadyExists);
+        let id_progress_translator = create_or_open!(
+            IDProgressTranslator,
+            IDProgressTError::TranslatorAlreadyExists);
+        let id_description_translator = create_or_open!(
+            IDDescriptionTranslator,
+            IDDescTError::TranslatorAlreadyExists);
+        let id_freedata_translator = create_or_open!(
+            IDFreeDataTranslator,
+            IDFreeDataTError::TranslatorAlreadyExists
+        );
 
         Ok(Storage {
             path_id_translator: Box::new(path_id_translator),

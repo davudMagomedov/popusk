@@ -1,11 +1,10 @@
 use crate::library::{Library, LibraryError};
 use crate::localconf::{
-    read_filled_local_config, read_local_config, LocalConfigError, LocalConfigFilled,
+    read_filled_local_config, LocalConfigError, LocalConfigFilled,
 };
 use crate::scripts::{open_scripts_from_directory, Scripts, ScriptsError};
 use crate::storage::{Storage, StorageError};
 
-use std::io::Error as IoError;
 use std::path::Path;
 
 use thiserror::Error;
@@ -20,8 +19,6 @@ pub enum AppError {
     StorageError(#[from] StorageError),
     #[error("scripts: {0}")]
     ScriptsError(#[from] ScriptsError),
-    #[error("an I/O error occured: {0}")]
-    IO(#[from] IoError),
     #[error("local config error: {0}")]
     LocalConfigError(#[from] LocalConfigError),
 }
