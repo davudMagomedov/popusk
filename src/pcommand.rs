@@ -25,6 +25,7 @@ use thiserror::Error;
 
 mod add_description_pcmd;
 mod add_entitybase_pcmd;
+mod add_freedata_pcmd;
 mod add_libentity_pcmd;
 mod add_path_pcmd;
 mod add_progress_pcmd;
@@ -47,6 +48,7 @@ mod status_pcmd;
 
 pub use add_description_pcmd::*;
 pub use add_entitybase_pcmd::*;
+pub use add_freedata_pcmd::*;
 pub use add_libentity_pcmd::*;
 pub use add_path_pcmd::*;
 pub use add_progress_pcmd::*;

@@ -19,6 +19,9 @@ pub fn parse_cli_command(cli_command: CliCommand) -> P_WA_Command {
         CliCommand::AddEntitybase { id } => {
             P_WA_Command::PCommand(Box::new(AddEntitybasePCMD::new(id)))
         }
+        CliCommand::AddFreeData { id, file } => {
+            P_WA_Command::PCommand(Box::new(AddFreeDataPCMD::new(id, file)))
+        }
         CliCommand::AddTags { id, tags } => {
             P_WA_Command::PCommand(Box::new(AddTagsPCMD::new(id, tags)))
         }

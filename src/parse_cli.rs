@@ -41,6 +41,9 @@ pub enum CliCommand {
     /// Add entity base for ID. Put serialized entitybase to stdin
     #[command(name = "llc_add_entitybase")]
     AddEntitybase { id: ID },
+    /// Add freedata for ID. Takes JSON dictionary.
+    #[command(name = "llc_add_freedata")]
+    AddFreeData { id: ID, file: Option<PathBuf> },
     /// Add description for ID
     #[command(name = "llc_add_description")]
     AddDescription { id: ID, description: String },
