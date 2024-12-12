@@ -1,4 +1,4 @@
-use crate::types::{EntityType, Progress, ID};
+use crate::types::{EntityType, Progress, ID, FreeData};
 
 use std::path::PathBuf;
 
@@ -11,6 +11,7 @@ pub struct LibEntityData {
     pub tags: Vec<String>,
     pub progress: Option<Progress>,
     pub description: Option<String>,
+    pub freedata: Option<FreeData>,
 }
 
 /// Contains all attributes from `LibEntityData` + id.
@@ -39,6 +40,10 @@ impl LibEntity {
 
     pub fn description(&self) -> Option<&String> {
         self.data.description.as_ref()
+    }
+
+    pub fn freedata(&self) -> Option<&FreeData> {
+        self.data.freedata.as_ref()
     }
 
     pub fn name(&self) -> &String {

@@ -131,6 +131,7 @@ impl PCommand for AddLibentityPCMD {
             None
         };
         let description = self.read_description()?;
+        let freedata = None;
 
         let libentity_data = LibEntityData {
             path: self.path.clone(),
@@ -139,6 +140,7 @@ impl PCommand for AddLibentityPCMD {
             name,
             progress,
             tags,
+            freedata,
         };
 
         app.library_mut().add_libentity(libentity_data)?;

@@ -56,6 +56,7 @@ impl Library {
             None
         };
         let description = self.storage.get_description(id)?;
+        let freedata = self.storage.get_freedata(id)?;
 
         let libentity_data = LibEntityData {
             path,
@@ -64,6 +65,7 @@ impl Library {
             tags: base.tags().clone(),
             progress,
             description,
+            freedata,
         };
         let libentity = LibEntity::from_id_data(id, libentity_data);
 
@@ -78,6 +80,7 @@ impl Library {
             tags,
             progress,
             description,
+            freedata
         } = libentity_data;
 
         let id = self.storage.link_id_to_path(path)?;
@@ -90,6 +93,10 @@ impl Library {
 
         if let Some(description) = description {
             self.storage.link_description_to_id(id, description)?;
+        }
+
+        if let Some(freedata) = freedata {
+            self.storage.link_freedata_to_id(id, freedata)?;
         }
 
         Ok(())
@@ -107,11 +114,16 @@ impl Library {
             Some(_) => Some(self.storage.unlink_description_from_id(id)?),
             None => None,
         };
+        let freedata = match self.storage.get_freedata(id)? {
+            Some(_) => Some(self.storage.unlink_freedata_to_id(id)?),
+            None => None
+        };
 
         let libentity_data = LibEntityData {
             path,
             progress,
             description,
+            freedata,
             name: base.name().clone(),
             etype: base.etype(),
             tags: base.tags().clone(),
