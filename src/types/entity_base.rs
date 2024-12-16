@@ -45,8 +45,20 @@ impl EntityBase {
         &self.tags
     }
 
+    pub fn set_etype(&mut self, new_etype: EntityType) {
+        self.etype = new_etype;
+    }
+
     pub fn name_mut(&mut self) -> &mut String {
         &mut self.name
+    }
+
+    pub fn extract_name(self) -> String {
+        self.name
+    }
+
+    pub fn extract_tags(self) -> Vec<Tag> {
+        self.tags
     }
 
     pub fn tags_mut(&mut self) -> &mut Vec<Tag> {

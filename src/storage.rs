@@ -202,6 +202,10 @@ impl Storage {
         })
     }
 
+    pub fn id_exists(&self, id: ID) -> Result<bool, StorageError> {
+        Ok(self.ail.id_exists(id)?)
+    }
+
     pub fn link_freedata_to_id(&mut self, id: ID, freedata: FreeData) -> Result<(), StorageError> {
         self.id_freedata_translator.add_translation(id, freedata)
     }
@@ -286,6 +290,12 @@ impl Storage {
 
     pub fn unlink_description_from_id(&mut self, id: ID) -> Result<String, StorageError> {
         self.id_description_translator.del_translation(id)
+    }
+
+    pub fn update_description(&mut self, id: ID, new_description: String)
+    -> Result<String, StorageError> {
+        self.id_description_translator
+            .update_translation(id, new_description)
     }
 
     pub fn update_entitybase(

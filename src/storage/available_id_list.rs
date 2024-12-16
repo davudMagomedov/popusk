@@ -90,6 +90,18 @@ impl AvailableIDList {
         })
     }
 
+    pub fn id_exists(&self, id: ID) -> ComResult<bool> {
+        let byte_section = self.byte_section()?;
+
+        let byte_index = (id.value() / 8) as usize;
+        let bit_index = (id.value() % 8) as usize;
+
+        if byte_index >= byte_section.len() { return Ok(false) }
+
+        let byte = byte_section[byte_index];
+        Ok((byte >> bit_index) & 0b1 == 1)
+    }
+
     pub fn grab_id(&mut self) -> ComResult<ID> {
         let byte_section = self.byte_section()?;
         let (byte_index, byte) = match byte_section
