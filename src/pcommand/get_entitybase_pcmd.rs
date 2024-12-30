@@ -1,8 +1,25 @@
 use crate::app::App;
 use crate::comps_appearance::entitybase_to_fullinfo_string;
-use crate::types::ID;
+use crate::types::{ID, LibEntityConst, EntityBase, LibEntityMetaError};
+use crate::library::LibraryError;
+use crate::error_ext::CommonizeResultExt;
 
 use super::{PCommand, PExecutionError};
+
+use thiserror::Error as ThisError;
+
+type CMDResult<T, E = GetEntitybaseError> = Result<T, E>;
+
+#[derive(Debug, ThisError)]
+enum GetEntitybaseError {
+    #[error("library entity with ID {id} wasn't found")]
+    LibEntityWasNotFound { id: ID },
+
+    #[error("library entity: {0}")]
+    LibEntityMeta(#[from] LibEntityMetaError),
+    #[error("library: {0}")]
+    Library(#[from] LibraryError)
+}
 
 #[derive(Debug, Clone)]
 pub struct GetEntitybasePCMD {
@@ -13,19 +30,26 @@ impl GetEntitybasePCMD {
     pub fn new(id: ID) -> Self {
         GetEntitybasePCMD { id }
     }
+
+    fn get_libentity(&self, app: &App) -> CMDResult<LibEntityConst> {
+        app.library()
+            .get_libentity_by_id(self.id)?
+            .ok_or_else(|| GetEntitybaseError::LibEntityWasNotFound { id: self.id })
+    }
+
+    fn execute_inner(&self, app: &mut App) -> CMDResult<EntityBase> {
+        Ok(self.get_libentity(app)?.ebase()?)
+    }
+
+    fn print_info_msg(&self, entitybase: EntityBase) {
+        println!("{}", entitybase_to_fullinfo_string(&entitybase));
+    }
 }
 
 impl PCommand for GetEntitybasePCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let maybe_entitybase = unsafe { app.library().storage() }.get_entitybase(self.id)?;
-
-        match maybe_entitybase {
-            Some(entitybase) => println!("{}", entitybase_to_fullinfo_string(&entitybase)),
-            None => println!(
-                "Couldn't find entity base associated with the {} ID",
-                self.id
-            ),
-        }
+        let entitybase = self.execute_inner(app).commonize()?;
+        self.print_info_msg(entitybase);
 
         Ok(())
     }

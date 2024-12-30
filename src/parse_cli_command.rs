@@ -61,8 +61,9 @@ pub fn parse_cli_command(cli_command: CliCommand) -> P_WA_Command {
         }
         CliCommand::Status {
             show_hidden,
+            show_directories,
             ignore,
-        } => P_WA_Command::PCommand(Box::new(StatusPCMD::new(show_hidden, ignore))),
+        } => P_WA_Command::PCommand(Box::new(StatusPCMD::new(show_hidden, show_directories, ignore))),
         CliCommand::Open { path, just_look } => {
             P_WA_Command::PCommand(Box::new(OpenPCMD::new(path, just_look)))
         }
@@ -71,7 +72,7 @@ pub fn parse_cli_command(cli_command: CliCommand) -> P_WA_Command {
             progress_update,
         } => P_WA_Command::PCommand(Box::new(ChangeProgressPCMD::new(id, progress_update))),
         CliCommand::RenameLibentity { path, new_path } => {
-            P_WA_Command::PCommand(Box::new(RenameLibentityPCMD::new(path, new_path)))
+            P_WA_Command::PCommand(Box::new(RenameLibEntityPCMD::new(path, new_path)))
         }
     }
 }

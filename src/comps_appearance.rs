@@ -29,7 +29,7 @@ pub fn entitytype_from_string(string: &str) -> ComResult<EntityType> {
 
 pub fn parse_string_to_tags(stringifed_tags: &str) -> ComResult<Vec<Tag>> {
     Ok(stringifed_tags
-        .split(' ')
+        .split_whitespace()
         .map(|tag| tag.trim().to_string())
         .collect())
 }

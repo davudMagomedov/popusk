@@ -1,10 +1,14 @@
-use crate::comps_interaction::libentity_has_progress;
 use crate::storage::{Storage, StorageError};
-use crate::types::{EntityBase, EntityType, LibEntity, LibEntityData, Progress, Tag, ID};
+use crate::types::{ID, LibEntityMetaError, LibEntityMut,
+                   LibEntityConst, LibEntityData, EntityBase};
 
 use std::path::PathBuf;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 use thiserror::Error;
+
+pub type LibraryResult<T> = Result<T, LibraryError>;
 
 #[derive(Debug, Error)]
 pub enum LibraryError {
@@ -16,172 +20,92 @@ pub enum LibraryError {
     CouldNotFindElement { element: String, path: PathBuf },
     #[error("couldn't find {element} for library entity with ID {id}")]
     CouldNotFindElementWithID { element: String, id: ID },
+
+    #[error("library entity: {0}")]
+    LibEntityMeta(#[from] LibEntityMetaError),
 }
 
 /// Implements operations with library entities (`LibEntity`) through storage (`Storage`).
 pub struct Library {
-    storage: Storage,
+    storage: Rc<RefCell<Storage>>,
 }
 
 impl Library {
     pub fn new(storage: Storage) -> Self {
-        Library { storage }
+        Library { storage: Rc::new(RefCell::new(storage)) }
     }
 
-    pub fn get_libentity(&self, path: PathBuf) -> Result<Option<LibEntity>, LibraryError> {
-        let id = match self.storage.get_id(path.clone())? {
-            Some(id) => id,
-            None => return Ok(None),
-        };
-        let base = match self.storage.get_entitybase(id)? {
-            Some(base) => base,
-            None => {
-                return Err(LibraryError::CouldNotFindElement {
-                    element: "entitybase".to_string(),
-                    path,
-                })
-            }
-        };
-        let progress = if libentity_has_progress(base.etype()) {
-            match self.storage.get_progress(id)? {
-                Some(progress) => Some(progress),
-                None => {
-                    return Err(LibraryError::CouldNotFindElement {
-                        element: "progress".to_string(),
-                        path,
-                    });
-                }
-            }
-        } else {
-            None
-        };
-        let description = self.storage.get_description(id)?;
-        let freedata = self.storage.get_freedata(id)?;
-
-        let libentity_data = LibEntityData {
-            path,
-            name: base.name().clone(),
-            etype: base.etype(),
-            tags: base.tags().clone(),
-            progress,
-            description,
-            freedata,
-        };
-        let libentity = LibEntity::from_id_data(id, libentity_data);
-
-        Ok(Some(libentity))
+    pub fn get_libentity(&self, path: PathBuf) -> LibraryResult<Option<LibEntityConst>> {
+        let maybe_libentity = LibEntityConst::new_with_path(self.storage(), path);
+        match maybe_libentity {
+            Ok(libentity) => Ok(Some(libentity)),
+            Err(LibEntityMetaError::CouldNotFindLibEntityWithPath { .. }) => Ok(None),
+            Err(other_error) => Err(other_error.into()),
+        }
     }
 
-    pub fn add_libentity(&mut self, libentity_data: LibEntityData) -> Result<(), LibraryError> {
-        let LibEntityData {
-            path,
-            name,
-            etype,
-            tags,
-            progress,
-            description,
-            freedata
-        } = libentity_data;
-
-        let id = self.storage.link_id_to_path(path)?;
-        self.storage
-            .link_entitybase_to_id(id, EntityBase::new(id, name, etype, tags))?;
-
-        if let Some(progress) = progress {
-            self.storage.link_progress_to_id(id, progress)?;
+    pub fn get_libentity_by_id(&self, id: ID) -> LibraryResult<Option<LibEntityConst>> {
+        let maybe_libentity = LibEntityConst::new_with_id(self.storage(), id);
+        match maybe_libentity {
+            Ok(libentity) => Ok(Some(libentity)),
+            Err(LibEntityMetaError::CouldNotFindLibEntityWithPath { .. }) => Ok(None),
+            Err(other_error) => Err(other_error.into()),
         }
-
-        if let Some(description) = description {
-            self.storage.link_description_to_id(id, description)?;
-        }
-
-        if let Some(freedata) = freedata {
-            self.storage.link_freedata_to_id(id, freedata)?;
-        }
-
-        Ok(())
     }
 
-    pub fn del_libentity(&mut self, path: PathBuf) -> Result<LibEntity, LibraryError> {
-        let id = self.storage.unlink_id_from_path(path.clone())?;
-        let base = self.storage.unlink_entitybase_from_id(id)?;
-        let progress = if libentity_has_progress(base.etype()) {
-            Some(self.storage.unlink_progress_from_id(id)?)
-        } else {
-            None
-        };
-        let description = match self.storage.get_description(id)? {
-            Some(_) => Some(self.storage.unlink_description_from_id(id)?),
-            None => None,
-        };
-        let freedata = match self.storage.get_freedata(id)? {
-            Some(_) => Some(self.storage.unlink_freedata_to_id(id)?),
-            None => None
-        };
+    pub fn get_libentity_mut(&mut self, path: PathBuf) -> LibraryResult<Option<LibEntityMut>> {
+        let maybe_libentity = LibEntityMut::new_with_path(self.storage(), path);
+        match maybe_libentity {
+            Ok(libentity) => Ok(Some(libentity)),
+            Err(LibEntityMetaError::CouldNotFindLibEntityWithPath { .. }) => Ok(None),
+            Err(other_error) => Err(other_error.into()),
+        }
+    }
 
-        let libentity_data = LibEntityData {
-            path,
-            progress,
-            description,
-            freedata,
-            name: base.name().clone(),
-            etype: base.etype(),
-            tags: base.tags().clone(),
+    pub fn get_libentity_mut_by_id(&mut self, id: ID) -> LibraryResult<Option<LibEntityMut>> {
+        let maybe_libentity = LibEntityMut::new_with_id(self.storage(), id);
+        match maybe_libentity {
+            Ok(libentity) => Ok(Some(libentity)),
+            Err(LibEntityMetaError::CouldNotFindLibEntityWithPath { .. }) => Ok(None),
+            Err(other_error) => Err(other_error.into()),
+        }
+    }
+
+    /// Creates bare library entity, without progress and even without entitybase.
+    ///
+    /// SAFETY: satisfy library entity rules such as necessary entitybase.
+    pub unsafe fn create_empty_libentity(&mut self, path: PathBuf) -> LibraryResult<LibEntityMut> {
+        let id = self.link_id_to_path(path.clone())?;
+        let libentity = unsafe { 
+            LibEntityMut::new_with_path_id_unchecked(self.storage(), id, path)?
         };
-        let libentity = LibEntity::from_id_data(id, libentity_data);
 
         Ok(libentity)
     }
 
-    pub fn update_libentity(
-        &mut self,
-        new_libentity_data: LibEntityData,
-    ) -> Result<LibEntity, LibraryError> {
-        let old_libentity = self.del_libentity(new_libentity_data.path.clone())?;
-        self.add_libentity(new_libentity_data)?;
+    /// Creates library entity without dumping to storage.
+    pub fn create_libentity_from_libentitydata(&mut self, libentity_data: LibEntityData)
+    -> LibraryResult<LibEntityMut> {
+        let LibEntityData {
+            path, name, etype, tags, progress, description, freedata
+        } = libentity_data;
 
-        Ok(old_libentity)
+        let mut libentity = unsafe { self.create_empty_libentity(path)? };
+        let id = libentity.id();
+
+        libentity.set_ebase(EntityBase::new(id, name, etype, tags))?;
+        libentity.set_progress(progress)?;
+        libentity.set_description(description)?;
+        libentity.set_freedata(freedata)?;
+
+        Ok(libentity)
     }
 
-    pub fn get_id(&self, path: PathBuf) -> Result<Option<ID>, LibraryError> {
-        Ok(self.storage.get_id(path)?)
+    pub fn storage(&self) -> Rc<RefCell<Storage>> {
+        Rc::clone(&self.storage)
     }
 
-    pub fn get_progress(&self, id: ID) -> Result<Option<Progress>, LibraryError> {
-        Ok(self.storage.get_progress(id)?)
-    }
-
-    pub fn get_description(&self, id: ID) -> Result<Option<String>, LibraryError> {
-        Ok(self.storage.get_description(id)?)
-    }
-
-    pub fn get_name(&self, id: ID) -> Result<Option<String>, LibraryError> {
-        Ok(self
-            .storage
-            .get_entitybase(id)?
-            .map(|base| base.name().clone()))
-    }
-
-    pub fn get_etype(&self, id: ID) -> Result<Option<EntityType>, LibraryError> {
-        Ok(self.storage.get_entitybase(id)?.map(|base| base.etype()))
-    }
-
-    pub fn get_tags(&self, id: ID) -> Result<Option<Vec<Tag>>, LibraryError> {
-        Ok(self
-            .storage
-            .get_entitybase(id)?
-            .map(|base| base.tags().clone()))
-    }
-
-    pub fn get_base(&self, id: ID) -> Result<Option<EntityBase>, LibraryError> {
-        Ok(self.storage.get_entitybase(id)?)
-    }
-
-    pub unsafe fn storage(&self) -> &Storage {
-        &self.storage
-    }
-
-    pub unsafe fn storage_mut(&mut self) -> &mut Storage {
-        &mut self.storage
+    unsafe fn link_id_to_path(&mut self, path: PathBuf) -> LibraryResult<ID> {
+        Ok(self.storage().borrow_mut().link_id_to_path(path.clone())?)
     }
 }

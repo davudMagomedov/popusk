@@ -1,12 +1,31 @@
 use crate::app::App;
-use crate::error_ext::ComError;
 use crate::error_ext::CommonizeResultExt;
-use crate::types::{Tag, ID};
+use crate::types::{Tag, ID, LibEntityMut, LibEntityMetaError};
+use crate::library::LibraryError;
 
 use super::{PCommand, PExecutionError};
 
-use std::io::stdin;
+use std::io::{stdin, Error as IoError};
 use std::num::ParseIntError;
+
+use thiserror::Error as ThisError;
+
+type CMDResult<T, E = DelTagsError> = Result<T, E>;
+
+#[derive(Debug, ThisError)]
+enum DelTagsError {
+    #[error("library entity with ID {id} wasn't found")]
+    LibEntityWasNotFound { id: ID },
+
+    #[error("could not parse integer: {0}")]
+    ParseInt(#[from] ParseIntError),
+    #[error("library entity: {0}")]
+    LibEntityMeta(#[from] LibEntityMetaError),
+    #[error("library: {0}")]
+    Library(#[from] LibraryError),
+    #[error("i/o: {0}")]
+    IO(#[from] IoError),
+}
 
 fn delete_indexes_in_vector<T>(base_vector: Vec<T>, delete_indexes: &[usize]) -> Vec<T> {
     base_vector
@@ -27,52 +46,55 @@ pub struct DelTagsPCMD {
     id: ID,
 }
 
+fn print_tags(tags: &[Tag]) {
+    tags.into_iter()
+        .enumerate()
+        .for_each(|(index, tag)| println!("{}: {}", index, tag))
+}
+
+fn get_indexes_to_delete() -> CMDResult<Vec<usize>> {
+    let mut buf = String::new();
+    stdin().read_line(&mut buf)?;
+    buf = buf.trim().to_string();
+
+    let indexes = buf
+        .split_whitespace()
+        .map(|stried_index| stried_index.parse::<usize>())
+        .collect::<Result<Vec<usize>, ParseIntError>>()?;
+
+    Ok(indexes)
+}
+
 impl DelTagsPCMD {
     pub fn new(id: ID) -> Self {
         DelTagsPCMD { id }
     }
 
-    fn print_tags(&self, tags: &Vec<Tag>) {
-        tags.into_iter()
-            .enumerate()
-            .for_each(|(index, tag)| println!("{}: {}", index, tag))
+    fn get_libentity(&self, app: &mut App) -> CMDResult<LibEntityMut> {
+        app.library_mut()
+            .get_libentity_mut_by_id(self.id)?
+            .ok_or_else(|| DelTagsError::LibEntityWasNotFound { id: self.id })
     }
 
-    fn get_indexes_to_delete(&self) -> Result<Vec<usize>, PExecutionError> {
-        let mut buf = String::new();
-        stdin().read_line(&mut buf)?;
-        buf = buf.trim().to_string();
+    fn execute_inner(&self, app: &mut App) -> CMDResult<()> {
+        let mut libentity = self.get_libentity(app)?;
+        let tags = libentity.tags()?;
 
-        let indexes = buf
-            .split_whitespace()
-            .map(|stried_index| stried_index.parse::<usize>())
-            .collect::<Result<Vec<usize>, ParseIntError>>()
-            .commonize()?;
+        print_tags(&tags);
+        let indexes_to_delete = get_indexes_to_delete()?;
 
-        Ok(indexes)
+        let updated_tags = delete_indexes_in_vector(tags, &indexes_to_delete);
+        libentity.set_tags(updated_tags)?;
+        libentity.dump_to_storage()?;
+
+        Ok(())
     }
 }
 
 impl PCommand for DelTagsPCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let mut entitybase = match unsafe { app.library().storage() }.get_entitybase(self.id)? {
-            Some(entitybase) => entitybase,
-            None => {
-                return Err(
-                    ComError::from(format!("couldn't find entitybase for ID {}", self.id)).into(),
-                )
-            }
-        };
-
-        self.print_tags(entitybase.tags());
-
-        let indexes_to_delete = self.get_indexes_to_delete()?;
-
-        let old_tags = std::mem::replace(entitybase.tags_mut(), Vec::new());
-        let done_tags = delete_indexes_in_vector(old_tags, &indexes_to_delete);
-        _ = std::mem::replace(entitybase.tags_mut(), done_tags);
-
-        unsafe { app.library_mut().storage_mut() }.update_entitybase(self.id, entitybase)?;
+        self.execute_inner(app).commonize()?;
+        println!("The selected tags ware deleted");
 
         Ok(())
     }

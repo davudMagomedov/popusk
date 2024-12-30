@@ -1,8 +1,29 @@
 use crate::app::App;
-use crate::error_ext::ComError;
-use crate::scripts::Context;
+use crate::error_ext::{ComError, CommonizeResultExt};
+use crate::scripts::{ScriptsError, Context};
+use crate::types::{LibEntity, LibEntityMetaError};
+use crate::library::LibraryError;
+use crate::storage::StorageError;
 
 use super::{PCommand, PExecutionError};
+
+use thiserror::Error as ThisError;
+
+type CMDResult<T, E = ListError> = Result<T, E>;
+
+#[derive(Debug, ThisError)]
+enum ListError {
+    #[error("library entity: {0}")]
+    LibEntityMeta(#[from] LibEntityMetaError),
+    #[error("library: {0}")]
+    Library(#[from] LibraryError),
+    #[error("storage: {0}")]
+    Storage(#[from] StorageError),
+    #[error("scripts: {0}")]
+    Scripts(#[from] ScriptsError),
+    #[error("{0}")]
+    Other(#[from] ComError),
+}
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum ListMode {
@@ -29,35 +50,46 @@ impl ListPCMD {
     pub fn new(mode: ListMode) -> Self {
         ListPCMD { mode }
     }
+
+    fn libentities(&self, app: &App) -> CMDResult<Vec<LibEntity>> {
+        let paths = app.library().storage().borrow().keys_path()?;
+
+        paths.into_iter()
+            .map(|path| Ok(
+                // `.unwrap()` is here because we know that `path` is valid.
+                app.library().get_libentity(path)?.unwrap().into_canonical_libentity()?
+            ))
+            .collect::<Result<Vec<LibEntity>, _>>()
+    }
+
+    fn make_context(&self, _app: &App) -> CMDResult<Context> {
+        match Context::auto() {
+            Some(context) => Ok(context),
+            None => {
+                Err(
+                    ComError::from("couldn't make context (Context object)").into(),
+                )
+            }
+        }
+    }
+
+    fn execute_inner(&self, app: &mut App) -> CMDResult<String> {
+        let libentities = self.libentities(app)?;
+        let context = self.make_context(app)?;
+
+        let listed = match self.mode {
+            ListMode::Wide => app.scripts().list_output_wide(libentities, context)?,
+            ListMode::Narrow => app.scripts().list_output_narrow(libentities, context)?,
+        };
+
+        Ok(listed)
+    }
 }
 
 impl PCommand for ListPCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let paths = unsafe { app.library().storage() }.keys_path()?;
-
-        let mut libentities = Vec::with_capacity(paths.len());
-        for path in paths {
-            let libentity = match app.library().get_libentity(path)? {
-                Some(libentity) => libentity,
-                None => return Err(ComError::from(format!("invalid library entity")).into()),
-            };
-            libentities.push(libentity);
-        }
-
-        let context = match Context::auto() {
-            Some(context) => context,
-            None => {
-                return Err(
-                    ComError::from(format!("couldn't make context (Context object)")).into(),
-                )
-            }
-        };
-
-        let result = match self.mode {
-            ListMode::Wide => app.scripts().list_output_wide(libentities, context)?,
-            ListMode::Narrow => app.scripts().list_output_narrow(libentities, context)?,
-        };
-        println!("{}", result.trim());
+        let listed = self.execute_inner(app).commonize()?;
+        println!("{}", listed);
 
         Ok(())
     }

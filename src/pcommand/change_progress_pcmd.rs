@@ -1,9 +1,30 @@
 use crate::app::App;
 use crate::comps_appearance::progress_to_string;
-use crate::error_ext::ComError;
-use crate::types::{ProgressUpdate, ID};
+use crate::error_ext::CommonizeResultExt;
+use crate::types::{ProgressUpdate, ID, LibEntityMetaError, LibEntityMut,
+                   ProgressUpdateError, Progress};
+use crate::library::LibraryError;
 
 use super::{PCommand, PExecutionError};
+
+use thiserror::Error as ThisError;
+
+type CMDResult<T, E = ChangeProgressError> = Result<T, E>;
+
+#[derive(Debug, ThisError)]
+enum ChangeProgressError {
+    #[error("library entity with ID {id} wasn't found")]
+    LibEntityWasNotFound { id: ID },
+    #[error("progress was not found for this ID")]
+    ProgressWasNotFound,
+
+    #[error("library entity: {0}")]
+    LibEntityMeta(#[from] LibEntityMetaError),
+    #[error("library: {0}")]
+    Library(#[from] LibraryError),
+    #[error("progress update: {0}")]
+    ProgressUpdate(#[from] ProgressUpdateError)
+}
 
 #[derive(Debug, Clone)]
 pub struct ChangeProgressPCMD {
@@ -18,22 +39,29 @@ impl ChangeProgressPCMD {
             progress_update,
         }
     }
+
+    fn get_libentity(&self, app: &mut App) -> CMDResult<LibEntityMut> {
+        app.library_mut().get_libentity_mut_by_id(self.id)?
+            .ok_or_else(|| ChangeProgressError::LibEntityWasNotFound { id: self.id })
+    }
+
+    fn execute_inner(&self, app: &mut App) -> CMDResult<Progress> {
+        let mut libentity = self.get_libentity(app)?;
+
+        let mut progress = libentity.progress()?
+            .ok_or_else(|| ChangeProgressError::ProgressWasNotFound)?;
+        self.progress_update.execute_for(&mut progress)?;
+
+        libentity.set_progress(Some(progress))?;
+        libentity.dump_to_storage()?;
+
+        Ok(progress)
+    }
 }
 
 impl PCommand for ChangeProgressPCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let mut progress = match unsafe { app.library().storage() }.get_progress(self.id)? {
-            Some(progress) => progress,
-            None => {
-                return Err(
-                    ComError::from(format!("couldn't find progress for ID {}", self.id)).into(),
-                )
-            }
-        };
-
-        self.progress_update.execute_for(&mut progress)?;
-
-        unsafe { app.library_mut().storage_mut() }.update_progress(self.id, progress)?;
+        let progress = self.execute_inner(app).commonize()?;
 
         println!(
             "The progress was updated to {}",

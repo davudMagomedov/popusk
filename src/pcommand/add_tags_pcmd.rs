@@ -1,11 +1,28 @@
 use crate::app::App;
 use crate::comps_appearance::parse_string_to_tags;
-use crate::error_ext::ComError;
-use crate::types::ID;
+use crate::error_ext::{ComError, CommonizeResultExt};
+use crate::types::{ID, Tag};
+use crate::library::LibraryError;
+use crate::types::{LibEntityMut, LibEntityMetaError};
 
 use super::{PCommand, PExecutionError};
 
-use itertools::Itertools;
+use thiserror::Error as ThisError;
+
+type CMDResult<T, E = AddTagsError> = Result<T, E>;
+
+#[derive(Debug, ThisError)]
+enum AddTagsError {
+    #[error("library entity with ID {id} wasn't found")]
+    LibEntityWasNotFound { id: ID },
+    #[error("could not parse string to vector of tags: {0}")]
+    CouldNotParseStringToTags(ComError),
+
+    #[error("library: {0}")]
+    Library(#[from] LibraryError),
+    #[error("library entity: {0}")]
+    LibEntity(#[from] LibEntityMetaError),
+}
 
 #[derive(Debug, Clone)]
 pub struct AddTagsPCMD {
@@ -17,30 +34,36 @@ impl AddTagsPCMD {
     pub fn new(id: ID, stried_tags: String) -> Self {
         AddTagsPCMD { id, stried_tags }
     }
+
+    fn get_libentity(&self, app: &mut App) -> CMDResult<LibEntityMut> {
+        app.library_mut()
+            .get_libentity_mut_by_id(self.id)?
+            .ok_or_else(|| AddTagsError::LibEntityWasNotFound { id: self.id })
+    }
+
+    fn get_tags(&self) -> CMDResult<Vec<Tag>> {
+        parse_string_to_tags(&self.stried_tags)
+            .map_err(|e| AddTagsError::CouldNotParseStringToTags(e))
+    }
+
+    fn execute_inner(&self, app: &mut App) -> CMDResult<()> {
+        let mut libentity = self.get_libentity(app)?;
+
+        let mut tags = libentity.tags()?;
+        let new_tags = self.get_tags()?;
+
+        tags.extend(new_tags);
+
+        libentity.set_tags(tags)?;
+        libentity.dump_to_storage()?;
+
+        Ok(())
+    }
 }
 
 impl PCommand for AddTagsPCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let mut entitybase = match unsafe { app.library().storage() }.get_entitybase(self.id)? {
-            Some(entitybase) => entitybase,
-            None => {
-                return Err(
-                    ComError::from(format!("couldn't find entitybase for ID {}", self.id)).into(),
-                )
-            }
-        };
-
-        let tags = parse_string_to_tags(&self.stried_tags)?;
-
-        entitybase.tags_mut().extend(tags);
-        *entitybase.tags_mut() = entitybase
-            .tags()
-            .into_iter()
-            .unique()
-            .map(|s| s.clone())
-            .collect();
-
-        unsafe { app.library_mut().storage_mut() }.update_entitybase(self.id, entitybase)?;
+        self.execute_inner(app).commonize()?;
 
         println!("The tags were added");
 

@@ -1,10 +1,31 @@
 use crate::app::App;
-use crate::error_ext::ComError;
-use crate::scripts::Context;
+use crate::error_ext::{ComError, CommonizeResultExt};
+use crate::scripts::{Context, ScriptsError};
+use crate::library::LibraryError;
+use crate::types::{LibEntityMetaError, LibEntity};
 
 use super::{PCommand, PExecutionError};
 
 use std::path::PathBuf;
+
+use thiserror::Error as ThisError;
+
+type CMDResult<T, E = LookError> = Result<T, E>;
+
+#[derive(Debug, ThisError)]
+enum LookError {
+    #[error("could not find library entity with path '{path}'")]
+    CouldNotFindLibEntity { path: PathBuf },
+
+    #[error("library entity: {0}")]
+    LibEntityMeta(#[from] LibEntityMetaError),
+    #[error("library: {0}")]
+    Library(#[from] LibraryError),
+    #[error("scripts: {0}")]
+    Scripts(#[from] ScriptsError),
+    #[error("{0}")]
+    Other(#[from] ComError),
+}
 
 #[derive(Debug, Clone)]
 pub struct LookPCMD {
@@ -15,31 +36,38 @@ impl LookPCMD {
     pub fn new(path: PathBuf) -> Self {
         LookPCMD { path }
     }
+
+    fn get_libentity(&self, app: &App) -> CMDResult<LibEntity> {
+        match app.library().get_libentity(self.path.clone())? {
+            Some(libentity) => Ok(libentity.into_canonical_libentity()?),
+            None => Err(LookError::CouldNotFindLibEntity { path: self.path.clone() })
+        }
+    }
+
+    fn make_context(&self, _app: &App) -> CMDResult<Context> {
+        match Context::auto() {
+            Some(context) => Ok(context),
+            None => {
+                Err(
+                    ComError::from("couldn't make context (Context object)").into(),
+                )
+            }
+        }
+    }
+
+    fn execute_inner(&self, app: &mut App) -> CMDResult<String> {
+        let libentity = self.get_libentity(app)?;
+        let context = self.make_context(app)?;
+        let result = app.scripts().look_output(libentity, context)?;
+
+        Ok(result)
+    }
 }
 
 impl PCommand for LookPCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let libentity = match app.library().get_libentity(self.path.clone())? {
-            Some(libentity) => libentity,
-            None => {
-                return Err(ComError::from(format!(
-                    "couldn't find library entity with path '{}'",
-                    self.path.to_string_lossy()
-                ))
-                .into());
-            }
-        };
-        let context = match Context::auto() {
-            Some(context) => context,
-            None => {
-                return Err(
-                    ComError::from(format!("couldn't make context (Context object)")).into(),
-                )
-            }
-        };
-
-        let result = app.scripts().look_output(libentity, context)?;
-        println!("{}", result.trim_end());
+        let result = self.execute_inner(app).commonize()?;
+        println!("{}", result);
 
         Ok(())
     }

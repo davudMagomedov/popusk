@@ -1,12 +1,16 @@
 use crate::storage::{Storage, StorageError};
-use crate::types::{EntityType, Progress, FreeData, ID, Tag, EntityBase};
-use crate::types::LibEntityData;
+use crate::types::{EntityType, Progress, FreeData, ID, Tag, EntityBase,
+                   LibEntity, LibEntityData};
+use crate::comps_interaction::libentity_has_progress;
 
-use std::cell::{RefCell, RefMut};
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::path::PathBuf;
+use std::ops::{Deref, DerefMut};
 
 use thiserror::Error as ThisError;
+
+pub type LibEntityResult<T> = Result<T, LibEntityMetaError>;
 
 #[derive(Debug, ThisError)]
 pub enum LibEntityMetaError {
@@ -16,6 +20,8 @@ pub enum LibEntityMetaError {
     CouldNotFindLibEntityWithID { id: ID },
     #[error("couldn't find entity base for ID {id}")]
     CouldNotFindEntityBaseForID { id: ID },
+    #[error("there was an attempt to delete progress of document")]
+    AttemptToDeleteProgressOfDoc, 
 
     #[error("storage error: {0}")]
     Storage(#[from] StorageError),
@@ -54,7 +60,7 @@ pub struct LibEntityMeta {
 
 impl LibEntityMeta {
     pub fn new_with_path(storage: Rc<RefCell<Storage>>, path: PathBuf)
-    -> Result<Self, LibEntityMetaError> {
+    -> LibEntityResult<Self> {
         let id = match storage.borrow().get_id(path.clone())? {
             Some(id) => id,
             None => return Err(LibEntityMetaError::CouldNotFindLibEntityWithPath { path })
@@ -67,8 +73,7 @@ impl LibEntityMeta {
         })
     }
 
-    pub fn new(storage: Rc<RefCell<Storage>>, id: ID)
-    -> Result<Self, LibEntityMetaError> {
+    pub fn new_with_id(storage: Rc<RefCell<Storage>>, id: ID) -> LibEntityResult<Self> {
         if !storage.borrow().id_exists(id)? {
             return Err(LibEntityMetaError::CouldNotFindLibEntityWithID { id });
         }
@@ -79,6 +84,22 @@ impl LibEntityMeta {
             data_cached: RefCell::new(LibEntityDataCached::empty()),
         })
     }
+
+    /// SAFETY: make sure that given ID is linked with given path.
+    pub unsafe fn new_with_path_id_unchecked(
+        storage: Rc<RefCell<Storage>>,
+        id: ID,
+        path: PathBuf
+    ) -> LibEntityResult<Self> {
+        Ok(LibEntityMeta {
+            storage, id, path: Some(path),
+            data_cached: RefCell::new(LibEntityDataCached::empty()),
+        })
+    }
+
+    pub fn id(&self) -> ID { self.id }
+
+    pub fn path(&self) -> Option<&PathBuf> { self.path.as_ref() }
 
     pub fn ebase(&self) -> Result<EntityBase, LibEntityMetaError> {
         if self.ebase_cached() {
@@ -153,6 +174,8 @@ impl LibEntityMeta {
     }
 
     pub fn set_ebase(&mut self, ebase: EntityBase) -> Result<(), LibEntityMetaError> {
+        debug_assert_eq!(ebase.id(), self.id);
+
         self.data_cached.borrow_mut().ebase.replace(ebase);
         Ok(())
     }
@@ -183,6 +206,10 @@ impl LibEntityMeta {
 
     pub fn set_progress(&mut self, progress: Option<Progress>)
     -> Result<(), LibEntityMetaError> {
+        if libentity_has_progress(self.etype()?) && progress.is_none() {
+            return Err(LibEntityMetaError::AttemptToDeleteProgressOfDoc)
+        }
+
         self.data_cached.borrow_mut().progress.replace(progress);
         Ok(())
     }
@@ -204,6 +231,55 @@ impl LibEntityMeta {
         self.dump_progress_to_storage()?;
         self.dump_description_to_storage()?;
         self.dump_freedata_to_storage()?;
+
+        Ok(())
+    }
+
+    pub fn into_canonical_libentity(&self) -> Result<LibEntity, LibEntityMetaError> {
+        debug_assert!(self.path.is_some());
+
+        self.load()?;
+
+        let libentity_data = LibEntityData {
+            path: self.path().unwrap().clone(),
+            name: self.name_raw().unwrap(),
+            etype: self.etype_raw().unwrap(),
+            tags: self.tags_raw().unwrap(),
+            progress: self.progress_raw().unwrap(),
+            description: self.description_raw().unwrap(),
+            freedata: self.freedata_raw().unwrap(),
+        };
+
+        Ok(LibEntity::from_id_data(self.id, libentity_data))
+    }
+
+    fn delete(self) -> Result<(), LibEntityMetaError> {
+        if self.path.is_none() {
+            panic!("there's no way to delete libentity without known path");
+        }
+
+        let mut storage = self.storage.borrow_mut();
+
+        storage.unlink_id_from_path(self.path.unwrap())?;
+        let ebase = storage.unlink_entitybase_from_id(self.id)?;
+        if libentity_has_progress(ebase.etype()) {
+            storage.unlink_progress_from_id(self.id)?;
+        }
+        if storage.get_description(self.id)?.is_some() {
+            storage.unlink_description_from_id(self.id)?;
+        }
+        if storage.get_freedata(self.id)?.is_some() {
+            storage.unlink_freedata_to_id(self.id)?;
+        }
+
+        Ok(())
+    }
+
+    fn load(&self) -> Result<(), LibEntityMetaError> {
+        self.cache_ebase(self.read_ebase_from_storage()?);
+        self.cache_progress(self.read_progress_from_storage()?);
+        self.cache_description(self.read_description_from_storage()?);
+        self.cache_freedata(self.read_freedata_from_storage()?);
 
         Ok(())
     }
@@ -378,5 +454,83 @@ impl LibEntityMeta {
 
     fn read_freedata_from_storage(&self) -> Result<Option<FreeData>, LibEntityMetaError> {
         Ok(self.storage.borrow().get_freedata(self.id)?)
+    }
+}
+
+pub struct LibEntityMut {
+    meta: LibEntityMeta,
+}
+
+impl LibEntityMut {
+    pub fn new_with_path(storage: Rc<RefCell<Storage>>, path: PathBuf)
+    -> LibEntityResult<Self> {
+        LibEntityMeta::new_with_path(storage, path)
+            .map(|meta| LibEntityMut { meta })
+    }
+
+    pub fn new_with_id(storage: Rc<RefCell<Storage>>, id: ID) -> LibEntityResult<Self> {
+        LibEntityMeta::new_with_id(storage, id)
+            .map(|meta| LibEntityMut { meta })
+    }
+
+    pub unsafe fn new_with_path_id_unchecked(
+        storage: Rc<RefCell<Storage>>,
+        id: ID,
+        path: PathBuf
+    ) -> LibEntityResult<Self> {
+        LibEntityMeta::new_with_path_id_unchecked(storage, id, path)
+            .map(|meta| LibEntityMut { meta })
+    }
+
+    pub fn delete(self) -> LibEntityResult<()> {
+        self.meta.delete()
+    }
+}
+
+impl Deref for LibEntityMut {
+    type Target = LibEntityMeta;
+
+    fn deref(&self) -> &Self::Target {
+        &self.meta
+    }
+}
+
+impl DerefMut for LibEntityMut {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.meta
+    }
+}
+
+pub struct LibEntityConst {
+    meta: LibEntityMeta,
+}
+
+impl LibEntityConst {
+    pub fn new_with_path(storage: Rc<RefCell<Storage>>, path: PathBuf)
+    -> LibEntityResult<Self> {
+        LibEntityMeta::new_with_path(storage, path)
+            .map(|meta| LibEntityConst { meta })
+    }
+
+    pub fn new_with_id(storage: Rc<RefCell<Storage>>, id: ID) -> LibEntityResult<Self> {
+        LibEntityMeta::new_with_id(storage, id)
+            .map(|meta| LibEntityConst { meta })
+    }
+
+    pub unsafe fn new_with_path_id_unchecked(
+        storage: Rc<RefCell<Storage>>,
+        id: ID,
+        path: PathBuf
+    ) -> LibEntityResult<Self> {
+        LibEntityMeta::new_with_path_id_unchecked(storage, id, path)
+            .map(|meta| LibEntityConst { meta })
+    }
+}
+
+impl Deref for LibEntityConst {
+    type Target = LibEntityMeta;
+
+    fn deref(&self) -> &Self::Target {
+        &self.meta
     }
 }

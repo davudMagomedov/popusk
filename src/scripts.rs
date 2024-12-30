@@ -141,12 +141,12 @@ impl Scripts {
         &self,
         libentity: LibEntity,
         context: Context,
-    ) -> Result<Progress, ScriptsError> {
+    ) -> Result<Option<Progress>, ScriptsError> {
         let open_libentity_func = self
             .lua
             .globals()
             .get::<LuaFunction>(OPEN_SCRIPT_FUNCTION_NAME)?;
-        match open_libentity_func.call::<Progress>((libentity, context)) {
+        match open_libentity_func.call::<Option<Progress>>((libentity, context)) {
             Ok(progress) => Ok(progress),
             Err(LuaError::RuntimeError(runtime_err_msg)) => {
                 return Err(ScriptsError::LuaRuntimeError(runtime_err_msg))

@@ -1,8 +1,7 @@
 use crate::app::App;
 use crate::comps_appearance::parse_string_to_tags;
-use crate::comps_interaction::libentity_has_progress;
 use crate::error_ext::ComResult;
-use crate::types::{EntityType, LibEntityData, Progress, Tag};
+use crate::types::{EntityType, Tag};
 
 use super::{PCommand, PExecutionError};
 
@@ -122,28 +121,30 @@ impl AddLibentityPCMD {
 impl PCommand for AddLibentityPCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
         // The attributes must be defined in the start of the function.
-        let name = self.read_name()?;
-        let tags = self.read_tags()?;
-        let etype = self.read_etype(app)?;
-        let progress = if libentity_has_progress(etype) {
-            Some(Progress::new(self.read_progceil()?))
-        } else {
-            None
-        };
-        let description = self.read_description()?;
-        let freedata = None;
+        //let name = self.read_name()?;
+        //let tags = self.read_tags()?;
+        //let etype = self.read_etype(app)?;
+        //let progress = if libentity_has_progress(etype) {
+        //    Some(Progress::new(self.read_progceil()?))
+        //} else {
+        //    None
+        //};
+        //let description = self.read_description()?;
+        //let freedata = None;
+        //
+        //let libentity_data = LibEntityData {
+        //    path: self.path.clone(),
+        //    description,
+        //    etype,
+        //    name,
+        //    progress,
+        //    tags,
+        //    freedata,
+        //};
+        //
+        //app.library_mut().add_libentity(libentity_data)?;
 
-        let libentity_data = LibEntityData {
-            path: self.path.clone(),
-            description,
-            etype,
-            name,
-            progress,
-            tags,
-            freedata,
-        };
-
-        app.library_mut().add_libentity(libentity_data)?;
+        todo!();
 
         Ok(())
     }

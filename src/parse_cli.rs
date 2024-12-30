@@ -105,6 +105,8 @@ pub enum CliCommand {
     Status {
         #[arg(long = "hidden", action = ArgAction::SetTrue)]
         show_hidden: bool,
+        #[arg(long = "dirs", action = ArgAction::SetTrue)]
+        show_directories: bool,
         #[arg(long = "ignore")]
         ignore: Option<String>,
     },

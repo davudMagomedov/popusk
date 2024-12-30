@@ -1,13 +1,16 @@
 use crate::app::App;
-use crate::error_ext::ComError;
+use crate::error_ext::CommonizeResultExt;
 use crate::storage::DEFAULT_WORKING_DIR;
+use crate::storage::StorageError;
 
 use super::{PCommand, PExecutionError};
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+use std::io::Error as IoError;
 
-use walkdir::{DirEntry, WalkDir};
+use walkdir::{DirEntry, WalkDir, Error as WDError};
+use thiserror::Error as ThisError;
 
 fn is_hidden(name: &OsStr) -> bool {
     name.to_str()
@@ -22,21 +25,36 @@ fn is_current_directory(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// Just returns `path == ".popusk"`.
+/// Just returns `path == DEFAULT_WORKING_DIR`.
 fn is_working_directory(name: &OsStr) -> bool {
     name.to_str()
         .map(|path| path.contains(DEFAULT_WORKING_DIR))
         .unwrap_or(false)
 }
 
+type CMDError = StatusError;
+type CMDResult<T, E = CMDError> = Result<T, E>;
+
+#[derive(Debug, ThisError)]
+enum StatusError {
+    #[error("could not get dir entry: {0}")]
+    CouldNotGetDirEntry(WDError),
+
+    #[error("storage: {0}")]
+    Storage(#[from] StorageError),
+    #[error("i/o: {0}")]
+    IO(#[from] IoError),
+}
+
 #[derive(Debug, Clone)]
 pub struct StatusPCMD {
     show_hidden: bool,
+    show_directories: bool,
     ignore: Vec<String>,
 }
 
 impl StatusPCMD {
-    pub fn new(show_hidden: bool, ignore_str: Option<String>) -> Self {
+    pub fn new(show_hidden: bool, show_directories: bool, ignore_str: Option<String>) -> Self {
         let ignore = ignore_str
             .unwrap_or_else(|| String::new())
             .split(',')
@@ -45,11 +63,16 @@ impl StatusPCMD {
 
         StatusPCMD {
             show_hidden,
+            show_directories,
             ignore,
         }
     }
 
     fn hide_hidden(&self) -> bool {
+        !self.show_hidden
+    }
+
+    fn hide_directories(&self) -> bool {
         !self.show_hidden
     }
 
@@ -63,39 +86,34 @@ impl StatusPCMD {
     fn check_entry(&self, entry: &DirEntry) -> bool {
         let name = entry.file_name();
 
-        // hide_hidden, is_hidden, ignore, is_working_directory
+        // hide_hidden, is_hidden, ignore, is_working_directory, hide_directories, is_directory
         //
         // - hide_hidden && is_hidden => false
         // - hide_hidden && !is_hidden && ignore => false
-        // - hide_hidden && !is_hidden && !ignore => true
+        // - hide_hidden && !is_hidden && !ignore && hide_directories && is_directory => false
+        // - hide_hidden && !is_hidden && !ignore && hide_directories && !is_directory => true
         // - !hide_hidden && is_working_directory => false
-        // - !hide_hidden && !is_working_directory && ignore => false
-        // - !hide_hidden && !is_working_directory && !ignore => true
-        if self.hide_hidden() {
-            if is_hidden(name) {
-                false
-            } else {
-                if self.ignore_list_contains(name) {
-                    false
-                } else {
-                    true
-                }
-            }
-        } else if is_working_directory(name) {
-            false
+        // - !hide_hidden && !is_working_directory && hide_directories && is_directory => false
+        // - !hide_hidden && !is_working_directory && hide_directories && !is_directory => true
+        if self.hide_hidden() && is_hidden(name) {
+            true
+        } else if !self.hide_hidden()
+                && !is_working_directory(name)
+                && self.hide_directories()
+                && entry.file_type().is_dir() {
+            true
         } else {
-            if self.ignore_list_contains(name) {
-                false
-            } else {
-                true
-            }
+            false
         }
     }
 
-    fn check_on_tracked(&self, app: &App, entry: &DirEntry) -> Result<bool, PExecutionError> {
-        Ok(unsafe { app.library().storage() }
-            .get_id(entry.path().to_owned())?
-            .is_some())
+    fn check_on_tracked(&self, app: &App, entry: &DirEntry) -> CMDResult<bool> {
+        Ok(
+            app.library().storage()
+                .borrow()
+                .get_id(entry.path().to_owned())?
+                .is_some()
+        )
     }
 
     fn print_untracked_paths(&self, untracked_paths: Vec<PathBuf>) {
@@ -104,35 +122,38 @@ impl StatusPCMD {
             .into_iter()
             .for_each(|untracked_path| println!("    {}", untracked_path.to_string_lossy()));
     }
-}
 
-impl PCommand for StatusPCMD {
-    fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let directory_rec_iterator = WalkDir::new(".")
+    fn directory_iterator<'a>(&'a self) -> impl Iterator<Item = CMDResult<DirEntry>> + use<'a> {
+        WalkDir::new(".")
             .into_iter()
             .filter_entry(|entry| self.check_entry(entry))
             .filter(|maybe_entry| match maybe_entry {
                 Ok(ref entry) => !is_current_directory(entry.path()),
                 Err(_) => true,
-            });
+            })
+            .map(|direntry| direntry.map_err(|wderr| CMDError::CouldNotGetDirEntry(wderr)))
+    }
 
-        let mut untracked_paths = Vec::new();
-        for entry in directory_rec_iterator {
-            let entry = match entry {
-                Ok(entry) => entry,
-                Err(err) => {
-                    return Err(
-                        ComError::from(format!("couldn't get directory entry: {0}", err)).into(),
-                    )
-                }
-            };
+    fn execute_inner(&self, app: &mut App) -> CMDResult<Vec<PathBuf>> {
+        let directory_files = self.directory_iterator();
+
+        let mut untracked_files = Vec::new();
+        for entry in directory_files {
+            let entry = entry?;
 
             if !self.check_on_tracked(app, &entry)? {
-                untracked_paths.push(entry.path().to_owned());
+                untracked_files.push(entry.path().to_owned());
             }
         }
 
-        self.print_untracked_paths(untracked_paths);
+        Ok(untracked_files)
+    }
+}
+
+impl PCommand for StatusPCMD {
+    fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
+        let untracked_files = self.execute_inner(app).commonize()?;
+        self.print_untracked_paths(untracked_files);
 
         Ok(())
     }

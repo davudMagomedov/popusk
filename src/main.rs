@@ -16,6 +16,7 @@ mod pcommand;
 mod scripts;
 mod storage;
 mod types;
+mod io_ext;
 mod wacommand; // w(ithout)a(pplication)command
 
 use app::App;

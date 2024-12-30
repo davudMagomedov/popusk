@@ -85,4 +85,16 @@ impl LibEntity {
     pub fn tags_mut(&mut self) -> &mut Vec<String> {
         &mut self.data.tags
     }
+
+    pub fn data_mut(&mut self) -> &mut LibEntityData {
+        &mut self.data
+    }
+
+    pub fn data(&self) -> &LibEntityData {
+        &self.data
+    }
+
+    pub fn extract_data(self) -> LibEntityData {
+        self.data
+    }
 }
