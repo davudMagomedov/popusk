@@ -122,6 +122,18 @@ impl FreeData {
     }
 }
 
+impl IntoLua for FreeData {
+    fn into_lua(self, lua: &Lua) -> LuaResult<LuaValue> {
+        self.root.into_lua(lua)
+    }
+}
+
+impl FromLua for FreeData {
+    fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
+        Ok(FreeData { root: FDataDictionary::from_lua(value, lua)? })
+    }
+}
+
 const fn float_is_finite(fl: f64) -> bool {
     fl != f64::INFINITY && fl != f64::NEG_INFINITY
 }

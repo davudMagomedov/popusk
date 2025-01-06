@@ -86,6 +86,10 @@ impl Library {
     /// Creates library entity without dumping to storage.
     pub fn create_libentity_from_libentitydata(&mut self, libentity_data: LibEntityData)
     -> LibraryResult<LibEntityMut> {
+        // TODO: This is shit code. It uses LibEntityMut for creating a libentity, whereas
+        // LibEntityMut is created with suggestion that the libentity already exists! This
+        // definetly should be changed.
+
         let LibEntityData {
             path, name, etype, tags, progress, description, freedata
         } = libentity_data;
@@ -93,7 +97,7 @@ impl Library {
         let mut libentity = unsafe { self.create_empty_libentity(path)? };
         let id = libentity.id();
 
-        libentity.set_ebase(EntityBase::new(id, name, etype, tags))?;
+        self.link_ebase_to_id(id, EntityBase::new(id, name, etype, tags))?;
         libentity.set_progress(progress)?;
         libentity.set_description(description)?;
         libentity.set_freedata(freedata)?;
@@ -105,7 +109,15 @@ impl Library {
         Rc::clone(&self.storage)
     }
 
+    pub fn libentity_exists(&self, path: PathBuf) -> LibraryResult<bool> {
+        Ok(self.storage.borrow().get_id(path)?.is_some())
+    }
+
     unsafe fn link_id_to_path(&mut self, path: PathBuf) -> LibraryResult<ID> {
         Ok(self.storage().borrow_mut().link_id_to_path(path.clone())?)
+    }
+    
+    fn link_ebase_to_id(&mut self, id: ID, ebase: EntityBase) -> LibraryResult<()> {
+        Ok(self.storage.borrow_mut().link_entitybase_to_id(id, ebase)?)
     }
 }

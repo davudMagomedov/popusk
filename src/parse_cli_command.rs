@@ -46,12 +46,9 @@ pub fn parse_cli_command(cli_command: CliCommand) -> P_WA_Command {
         CliCommand::GetEntitybase { id } => {
             P_WA_Command::PCommand(Box::new(GetEntitybasePCMD::new(id)))
         }
-        CliCommand::AddLibentity {
-            path,
-            name,
-            tags,
-            prog_ceil,
-        } => P_WA_Command::PCommand(Box::new(AddLibentityPCMD::new(path, name, tags, prog_ceil))),
+        CliCommand::AddLibentity { path } => {
+            P_WA_Command::PCommand(Box::new(AddLibentityPCMD::new(path)))
+        }
         CliCommand::DelLibentity { path } => {
             P_WA_Command::PCommand(Box::new(DelLibentityPCMD::new(path)))
         }

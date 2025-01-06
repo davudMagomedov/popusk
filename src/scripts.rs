@@ -1,7 +1,5 @@
-use crate::comps_appearance::entitytype_to_string;
 use crate::global_conf_directory::GlobalConfError;
-use crate::types::LibEntity;
-use crate::types::Progress;
+use crate::types::{LibEntity, LibEntityData, Progress};
 
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
 use std::path::{Path, PathBuf};
@@ -19,6 +17,9 @@ const OPEN_SCRIPT_FUNCTION_NAME: &str = "open_libentity";
 const LIST_NARROW_SCRIPT_FUNCTION_NAME: &str = "list_output_narrow";
 const LIST_WIDE_SCRIPT_FUNCTION_NAME: &str = "list_output_wide";
 const IS_DOCUMENT_SCRIPT_FUNCTION_NAME: &str = "is_document";
+const ADD_LIBRARY_ENTITY_FUNCTION_NAME: &str = "add_library_entity";
+
+pub type ScriptsResult<T, E = ScriptsError> = Result<T, E>;
 
 #[derive(Error, Debug)]
 pub enum ScriptsError {
@@ -89,28 +90,6 @@ impl FromLua for Progress {
     }
 }
 
-impl IntoLua for LibEntity {
-    fn into_lua(self, lua: &Lua) -> LuaResult<LuaValue> {
-        let libentity_table = lua.create_table()?;
-
-        libentity_table.set("path", self.path().to_string_lossy())?;
-        libentity_table.set("id", self.id().to_string())?;
-        libentity_table.set("name", self.name().clone())?;
-        libentity_table.set("tags", self.tags().clone())?;
-        libentity_table.set("etype", entitytype_to_string(self.etype()))?;
-
-        if let Some(progress) = self.progress() {
-            libentity_table.set("progress", progress.into_lua(lua)?)?;
-        }
-
-        if let Some(description) = self.description() {
-            libentity_table.set("description", description.clone())?;
-        }
-
-        Ok(LuaValue::Table(libentity_table))
-    }
-}
-
 #[derive(Debug)]
 // INVARIATNS:
 // - `lua` field is used only for getting variables.
@@ -123,7 +102,7 @@ impl Scripts {
         &self,
         libentity: LibEntity,
         context: Context,
-    ) -> Result<String, ScriptsError> {
+    ) -> ScriptsResult<String> {
         let look_output_func = self
             .lua
             .globals()
@@ -141,7 +120,7 @@ impl Scripts {
         &self,
         libentity: LibEntity,
         context: Context,
-    ) -> Result<Option<Progress>, ScriptsError> {
+    ) -> ScriptsResult<Option<Progress>> {
         let open_libentity_func = self
             .lua
             .globals()
@@ -159,7 +138,7 @@ impl Scripts {
         &self,
         libentities: Vec<LibEntity>,
         context: Context,
-    ) -> Result<String, ScriptsError> {
+    ) -> ScriptsResult<String> {
         let list_output_narrow_func = self
             .lua
             .globals()
@@ -177,13 +156,28 @@ impl Scripts {
         &self,
         libentities: Vec<LibEntity>,
         context: Context,
-    ) -> Result<String, ScriptsError> {
+    ) -> ScriptsResult<String> {
         let list_output_wide_func = self
             .lua
             .globals()
             .get::<LuaFunction>(LIST_WIDE_SCRIPT_FUNCTION_NAME)?;
         match list_output_wide_func.call::<String>((libentities, context)) {
             Ok(string) => Ok(string),
+            Err(LuaError::RuntimeError(runtime_err_msg)) => {
+                return Err(ScriptsError::LuaRuntimeError(runtime_err_msg))
+            }
+            Err(lua_error) => return Err(lua_error.into()),
+        }
+    }
+
+    pub fn add_library_entity(&self, path: PathBuf) -> ScriptsResult<LibEntityData> {
+        let add_libentity_func = self.
+            lua
+            .globals()
+            .get::<LuaFunction>(ADD_LIBRARY_ENTITY_FUNCTION_NAME)?;
+
+        match add_libentity_func.call::<LibEntityData>(path.to_string_lossy()) {
+            Ok(libentity_data) => Ok(libentity_data),
             Err(LuaError::RuntimeError(runtime_err_msg)) => {
                 return Err(ScriptsError::LuaRuntimeError(runtime_err_msg))
             }

@@ -70,15 +70,7 @@ pub enum CliCommand {
     GetEntitybase { id: ID },
     /// Add library entity to the storage of current directory
     #[command(name = "add_libentity")]
-    AddLibentity {
-        path: PathBuf,
-        #[arg(long, short = 'n')]
-        name: Option<String>,
-        #[arg(long, short = 't')]
-        tags: Option<String>,
-        #[arg(long, short = 'c')]
-        prog_ceil: Option<usize>,
-    },
+    AddLibentity { path: PathBuf },
     /// Delete library entity associated with the given path
     #[command(name = "del_libentity")]
     DelLibentity { path: PathBuf },

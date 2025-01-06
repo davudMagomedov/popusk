@@ -1,150 +1,79 @@
 use crate::app::App;
-use crate::comps_appearance::parse_string_to_tags;
-use crate::error_ext::ComResult;
-use crate::types::{EntityType, Tag};
+use crate::scripts::ScriptsError;
+use crate::error_ext::CommonizeResultExt;
+use crate::library::LibraryError;
+use crate::types::{LibEntityData, EntityType, LibEntityMetaError};
 
 use super::{PCommand, PExecutionError};
 
-use std::io::{stdin, stdout, Write};
 use std::path::PathBuf;
+
+use thiserror::Error as ThisError;
+use itertools::Itertools;
+
+type CMDResult<T, E = AddLibEntityError> = Result<T, E>;
+
+#[derive(Debug, ThisError)]
+enum AddLibEntityError {
+    #[error("library entity '{path}' already exists")]
+    LibEntityAlreadyExists { path: PathBuf },
+    #[error("file '{path}' doesn't exist")]
+    FileDoesNotExist { path: PathBuf },
+
+    #[error("scripts: {0}")]
+    Scripts(#[from] ScriptsError),
+    #[error("library: {0}")]
+    Library(#[from] LibraryError),
+    #[error("libentity meta: {0}")]
+    LibEntityMeta(#[from] LibEntityMetaError)
+}
 
 #[derive(Debug, Clone)]
 pub struct AddLibentityPCMD {
     path: PathBuf,
-    name: Option<String>,
-    tags: Option<String>,
-    prog_ceil: Option<usize>,
 }
 
 impl AddLibentityPCMD {
-    pub fn new(
-        path: PathBuf,
-        name: Option<String>,
-        tags: Option<String>,
-        prog_ceil: Option<usize>,
-    ) -> Self {
-        AddLibentityPCMD {
-            path,
-            name,
-            tags,
-            prog_ceil,
-        }
+    pub fn new(path: PathBuf) -> Self {
+        AddLibentityPCMD { path }
     }
 
-    fn read_name(&self) -> ComResult<String> {
-        if let Some(name) = &self.name {
-            return Ok(name.clone());
-        }
+    fn fix_libentity_data(&self, mut libentity_data: LibEntityData) -> CMDResult<LibEntityData> {
+        libentity_data.path = self.path.clone();
+        if self.path.is_dir() { libentity_data.etype = EntityType::Section }
+        libentity_data.tags = libentity_data.tags.into_iter().unique().collect();
 
-        let mut stdout = stdout();
-        stdout.write_all(b"Name: ")?;
-        stdout.flush()?;
-
-        let mut name = String::new();
-        stdin().read_line(&mut name)?;
-
-        Ok(name.trim().to_string())
+        Ok(libentity_data)
     }
 
-    fn read_tags(&self) -> ComResult<Vec<Tag>> {
-        if let Some(stringified_tags) = &self.tags {
-            return Ok(parse_string_to_tags(stringified_tags)?);
-        }
+    /// Returns error if somehow the command can't be run.
+    fn validation_check(&self, app: &App) -> CMDResult<()> {
+        if app.library().libentity_exists(self.path.clone())? {
+            return Err(AddLibEntityError::LibEntityAlreadyExists { path: self.path.clone() });
+        };
 
-        let mut stdout = stdout();
-        stdout.write_all(b"Tags (comma-separated): ")?;
-        stdout.flush()?;
-
-        let mut stringified_tags = String::new();
-        stdin().read_line(&mut stringified_tags)?;
-
-        Ok(parse_string_to_tags(stringified_tags.trim())?)
-    }
-
-    fn read_progceil(&self) -> ComResult<usize> {
-        if let Some(prog_ceil) = self.prog_ceil {
-            return Ok(prog_ceil);
-        }
-
-        let mut stdout = stdout();
-        stdout.write_all(b"Progress ceiling: ")?;
-        stdout.flush()?;
-
-        let mut stringified_progceil = String::new();
-        stdin().read_line(&mut stringified_progceil)?;
-
-        let prog_ceil = stringified_progceil.trim().parse::<usize>()?;
-
-        Ok(prog_ceil)
-    }
-
-    fn read_etype(&self, app: &App) -> ComResult<EntityType> {
         if !self.path.exists() {
-            return Err(format!("the file doesn't exist: {}", self.path.to_string_lossy()).into());
+            return Err(AddLibEntityError::FileDoesNotExist { path:  self.path.clone() });
         }
 
-        if self.path.is_dir() {
-            Ok(EntityType::Section)
-        } else if self.path.is_file() {
-            let extension = self
-                .path
-                .extension()
-                .map(|t| t.to_string_lossy().to_string())
-                .unwrap_or_else(|| "".to_string());
-
-            if app.scripts().is_document(extension)? {
-                Ok(EntityType::Document)
-            } else {
-                Ok(EntityType::Regular)
-            }
-        } else {
-            Ok(EntityType::Regular)
-        }
+        Ok(())
     }
 
-    fn read_description(&self) -> ComResult<Option<String>> {
-        let mut stdout = stdout();
-        stdout.write_all(b"Description (leave empty if none): ")?;
-        stdout.flush()?;
+    fn execute_inner(&self, app: &mut App) -> CMDResult<()> {
+        self.validation_check(app)?;
 
-        let mut description = String::new();
-        stdin().read_line(&mut description)?;
+        let libentity_data = app.scripts().add_library_entity(self.path.clone())?;
+        let libentity_data = self.fix_libentity_data(libentity_data)?;
+        let libentity = app.library_mut().create_libentity_from_libentitydata(libentity_data)?;
+        libentity.dump_to_storage()?;
 
-        if !description.trim().is_empty() {
-            Ok(Some(description.trim().to_string()))
-        } else {
-            Ok(None)
-        }
+        Ok(())
     }
 }
 
 impl PCommand for AddLibentityPCMD {
     fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        // The attributes must be defined in the start of the function.
-        //let name = self.read_name()?;
-        //let tags = self.read_tags()?;
-        //let etype = self.read_etype(app)?;
-        //let progress = if libentity_has_progress(etype) {
-        //    Some(Progress::new(self.read_progceil()?))
-        //} else {
-        //    None
-        //};
-        //let description = self.read_description()?;
-        //let freedata = None;
-        //
-        //let libentity_data = LibEntityData {
-        //    path: self.path.clone(),
-        //    description,
-        //    etype,
-        //    name,
-        //    progress,
-        //    tags,
-        //    freedata,
-        //};
-        //
-        //app.library_mut().add_libentity(libentity_data)?;
-
-        todo!();
+        self.execute_inner(app).commonize()?;
 
         Ok(())
     }
