@@ -11,10 +11,10 @@ use std::io::{stdin, Error as IoError};
 use serde_json::{from_str as from_json_str, Error as JsonError};
 use thiserror::Error as ThisError;
 
-type CMDResult<T, E = AddEntitybaseError> = Result<T, E>;
+type CMDResult<T, E = CMDError> = Result<T, E>;
 
 #[derive(Debug, ThisError)]
-enum AddEntitybaseError {
+enum CMDError {
     #[error("library entity with ID {id} wasn't found")]
     LibEntityWasNotFound { id: ID },
     #[error("could not parse json entity base: {0}")]
@@ -42,13 +42,13 @@ impl AddEntitybasePCMD {
     fn get_libentity(&self, app: &mut App) -> CMDResult<LibEntityMut> {
         app.library_mut()
             .get_libentity_mut_by_id(self.id)?
-            .ok_or_else(|| AddEntitybaseError::LibEntityWasNotFound { id: self.id })
+            .ok_or_else(|| CMDError::LibEntityWasNotFound { id: self.id })
     }
 
     fn read_ebase(&self) -> CMDResult<EntityBase> {
         let json_ebase = stdin().read_to_end_string()?;
         let ebase = from_json_str::<EntityBase>(&json_ebase)
-            .map_err(|e| AddEntitybaseError::CouldNotParseJsonEbase(e))?;
+            .map_err(|e| CMDError::CouldNotParseJsonEbase(e))?;
 
         Ok(ebase)
     }

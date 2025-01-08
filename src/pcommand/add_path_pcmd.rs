@@ -10,10 +10,13 @@ use std::path::PathBuf;
 
 use thiserror::Error as ThisError;
 
-type CMDResult<T> = Result<T, AddPathError>;
+type CMDResult<T> = Result<T, CMDError>;
 
 #[derive(Debug, ThisError)]
-enum AddPathError {
+enum CMDError {
+    #[error("the path already exists")]
+    PathAlreadyExists,
+
     #[error("library entity: {0}")]
     LibEntity(#[from] LibEntityMetaError),
     #[error("library: {0}")]
@@ -33,7 +36,20 @@ impl AddPathPCMD {
         AddPathPCMD { path }
     }
 
+    fn validation_check(&self, app: &App) -> CMDResult<()> {
+        let storage_own = app.library().storage();
+        let storage = storage_own.borrow();
+
+        if storage.get_id(self.path.clone())?.is_some() {
+            return Err(CMDError::PathAlreadyExists);
+        }
+
+        Ok(())
+    }
+
     fn execute_inner(&self, app: &mut App) -> CMDResult<ID> {
+        self.validation_check(app)?;
+
         let id = app.library_mut()
             .storage()
             .borrow_mut()

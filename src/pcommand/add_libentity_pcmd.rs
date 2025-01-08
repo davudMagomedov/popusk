@@ -11,10 +11,10 @@ use std::path::PathBuf;
 use thiserror::Error as ThisError;
 use itertools::Itertools;
 
-type CMDResult<T, E = AddLibEntityError> = Result<T, E>;
+type CMDResult<T, E = CMDError> = Result<T, E>;
 
 #[derive(Debug, ThisError)]
-enum AddLibEntityError {
+enum CMDError {
     #[error("library entity '{path}' already exists")]
     LibEntityAlreadyExists { path: PathBuf },
     #[error("file '{path}' doesn't exist")]
@@ -49,11 +49,11 @@ impl AddLibentityPCMD {
     /// Returns error if somehow the command can't be run.
     fn validation_check(&self, app: &App) -> CMDResult<()> {
         if app.library().libentity_exists(self.path.clone())? {
-            return Err(AddLibEntityError::LibEntityAlreadyExists { path: self.path.clone() });
+            return Err(CMDError::LibEntityAlreadyExists { path: self.path.clone() });
         };
 
         if !self.path.exists() {
-            return Err(AddLibEntityError::FileDoesNotExist { path:  self.path.clone() });
+            return Err(CMDError::FileDoesNotExist { path:  self.path.clone() });
         }
 
         Ok(())

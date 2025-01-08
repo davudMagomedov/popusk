@@ -9,10 +9,10 @@ use std::path::PathBuf;
 
 use thiserror::Error as ThisError;
 
-type CMDResult<T, E = DelPathError> = Result<T, E>;
+type CMDResult<T, E = CMDError> = Result<T, E>;
 
 #[derive(Debug, ThisError)]
-enum DelPathError {
+enum CMDError {
     #[error("path '{path}' was not found")]
     PathWasNotFound { path: PathBuf },
 
@@ -31,7 +31,20 @@ impl DelPathPCMD {
         DelPathPCMD { path }
     }
 
+    fn validation_check(&self, app: &App) -> CMDResult<()> {
+        let storage_own = app.library().storage();
+        let storage = storage_own.borrow();
+
+        if storage.get_id(self.path.clone())?.is_none() {
+            return Err(CMDError::PathWasNotFound { path: self.path.clone() });
+        }
+
+        Ok(())
+    }
+
     fn execute_inner(&self, app: &mut App) -> CMDResult<ID> {
+        self.validation_check(app)?;
+
         let id = app.library_mut()
             .storage().borrow_mut()
             .unlink_id_from_path(self.path.clone())?;

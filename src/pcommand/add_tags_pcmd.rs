@@ -8,11 +8,12 @@ use crate::types::{LibEntityMut, LibEntityMetaError};
 use super::{PCommand, PExecutionError};
 
 use thiserror::Error as ThisError;
+use itertools::Itertools;
 
-type CMDResult<T, E = AddTagsError> = Result<T, E>;
+type CMDResult<T, E = CMDError> = Result<T, E>;
 
 #[derive(Debug, ThisError)]
-enum AddTagsError {
+enum CMDError {
     #[error("library entity with ID {id} wasn't found")]
     LibEntityWasNotFound { id: ID },
     #[error("could not parse string to vector of tags: {0}")]
@@ -38,12 +39,12 @@ impl AddTagsPCMD {
     fn get_libentity(&self, app: &mut App) -> CMDResult<LibEntityMut> {
         app.library_mut()
             .get_libentity_mut_by_id(self.id)?
-            .ok_or_else(|| AddTagsError::LibEntityWasNotFound { id: self.id })
+            .ok_or_else(|| CMDError::LibEntityWasNotFound { id: self.id })
     }
 
     fn get_tags(&self) -> CMDResult<Vec<Tag>> {
         parse_string_to_tags(&self.stried_tags)
-            .map_err(|e| AddTagsError::CouldNotParseStringToTags(e))
+            .map_err(|e| CMDError::CouldNotParseStringToTags(e))
     }
 
     fn execute_inner(&self, app: &mut App) -> CMDResult<()> {
@@ -53,6 +54,7 @@ impl AddTagsPCMD {
         let new_tags = self.get_tags()?;
 
         tags.extend(new_tags);
+        tags = tags.into_iter().unique().collect();
 
         libentity.set_tags(tags)?;
         libentity.dump_to_storage()?;

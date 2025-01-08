@@ -13,10 +13,10 @@ use std::path::{PathBuf, Path};
 use thiserror::Error as Error;
 use serde_json::{from_str as from_json_str, Value as JsonValue, Error as JsonError};
 
-type CMDResult<T> = Result<T, AddFreeDataError>;
+type CMDResult<T> = Result<T, CMDError>;
 
 #[derive(Debug, Error)]
-enum AddFreeDataError {
+enum CMDError {
     #[error("non utf8 stdin input")]
     NonUTF8StdinInput,
     #[error("couldn't parse FreeData from string: {0}")]
@@ -40,9 +40,9 @@ enum AddFreeDataError {
     LibEntityMeta(#[from] LibEntityMetaError),
 }
 
-impl From<AddFreeDataError> for PExecutionError {
-    fn from(afde: AddFreeDataError) -> Self {
-        use AddFreeDataError::*;
+impl From<CMDError> for PExecutionError {
+    fn from(afde: CMDError) -> Self {
+        use CMDError::*;
 
         match afde {
             Storage(storage_error) => PExecutionError::StorageError(storage_error),
@@ -62,7 +62,7 @@ fn read_to_end_file(file: &Path) -> CMDResult<String> {
     match std::fs::read_to_string(file) {
         Ok(o) => Ok(o),
         Err(e) if e.kind() == IoErrorKind::NotFound => Err(
-            AddFreeDataError::CouldNotFindFile(file.to_owned()),
+            CMDError::CouldNotFindFile(file.to_owned()),
         ),
         Err(e) => Err(e.into()),
     }
@@ -71,7 +71,7 @@ fn read_to_end_file(file: &Path) -> CMDResult<String> {
 fn parse_freedata_from_str(content: &str) -> CMDResult<FreeData> {
     let json_value: JsonValue = from_json_str(content)?;
     let freedata = json_to_freedata(json_value)
-        .map_err(|e| AddFreeDataError::CouldNotConvertJsonToFData(e))?;
+        .map_err(|e| CMDError::CouldNotConvertJsonToFData(e))?;
 
     Ok(freedata)
 }
@@ -110,7 +110,7 @@ impl AddFreeDataPCMD {
     fn get_libentity(&self, app: &mut App) -> CMDResult<LibEntityMut> {
         app.library_mut()
             .get_libentity_mut_by_id(self.id)?
-            .ok_or_else(|| AddFreeDataError::CouldNotFindLibEntity)
+            .ok_or_else(|| CMDError::CouldNotFindLibEntity)
     }
 
     fn execute_inner(&self, app: &mut App) -> CMDResult<()> {

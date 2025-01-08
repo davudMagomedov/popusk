@@ -8,10 +8,10 @@ use crate::error_ext::CommonizeResultExt;
 
 use thiserror::Error as ThisError;
 
-type CMDResult<T, E = DelProgressError> = Result<T, E>;
+type CMDResult<T, E = CMDError> = Result<T, E>;
 
 #[derive(Debug, ThisError)]
-enum DelProgressError {
+enum CMDError {
     #[error("progress doesn't exist anyway")]
     ProgressDoesNotExist,
 
@@ -41,7 +41,7 @@ impl DelProgressPCMD {
         if self.progress_exists(app)? {
             Ok(self.delete_progress(app)?)
         } else {
-            Err(DelProgressError::ProgressDoesNotExist)
+            Err(CMDError::ProgressDoesNotExist)
         }
     }
 

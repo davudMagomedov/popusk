@@ -32,11 +32,10 @@ fn is_working_directory(name: &OsStr) -> bool {
         .unwrap_or(false)
 }
 
-type CMDError = StatusError;
 type CMDResult<T, E = CMDError> = Result<T, E>;
 
 #[derive(Debug, ThisError)]
-enum StatusError {
+enum CMDError {
     #[error("could not get dir entry: {0}")]
     CouldNotGetDirEntry(WDError),
 

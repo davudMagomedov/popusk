@@ -10,10 +10,10 @@ use std::path::PathBuf;
 
 use thiserror::Error as ThisError;
 
-type CMDResult<T, E = LookError> = Result<T, E>;
+type CMDResult<T, E = CMDError> = Result<T, E>;
 
 #[derive(Debug, ThisError)]
-enum LookError {
+enum CMDError {
     #[error("could not find library entity with path '{path}'")]
     CouldNotFindLibEntity { path: PathBuf },
 
@@ -40,7 +40,7 @@ impl LookPCMD {
     fn get_libentity(&self, app: &App) -> CMDResult<LibEntity> {
         match app.library().get_libentity(self.path.clone())? {
             Some(libentity) => Ok(libentity.into_canonical_libentity()?),
-            None => Err(LookError::CouldNotFindLibEntity { path: self.path.clone() })
+            None => Err(CMDError::CouldNotFindLibEntity { path: self.path.clone() })
         }
     }
 

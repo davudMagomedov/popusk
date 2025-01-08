@@ -9,10 +9,10 @@ use std::path::PathBuf;
 
 use thiserror::Error as ThisError;
 
-type CMDResult<T, E = DelLibEntityError> = Result<T, E>;
+type CMDResult<T, E = CMDError> = Result<T, E>;
 
 #[derive(Debug, ThisError)]
-enum DelLibEntityError {
+enum CMDError {
     #[error("library entity with path '{path}' wasn't found")]
     LibEntityWasNotFound { path: PathBuf },
 
@@ -34,7 +34,7 @@ impl DelLibentityPCMD {
 
     fn get_libentity(&self, app: &mut App) -> CMDResult<LibEntityMut> {
         app.library_mut().get_libentity_mut(self.path.clone())?
-            .ok_or_else(|| DelLibEntityError::LibEntityWasNotFound {
+            .ok_or_else(|| CMDError::LibEntityWasNotFound {
                 path: self.path.clone()
             })
     }

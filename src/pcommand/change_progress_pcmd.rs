@@ -9,10 +9,10 @@ use super::{PCommand, PExecutionError};
 
 use thiserror::Error as ThisError;
 
-type CMDResult<T, E = ChangeProgressError> = Result<T, E>;
+type CMDResult<T, E = CMDError> = Result<T, E>;
 
 #[derive(Debug, ThisError)]
-enum ChangeProgressError {
+enum CMDError {
     #[error("library entity with ID {id} wasn't found")]
     LibEntityWasNotFound { id: ID },
     #[error("progress was not found for this ID")]
@@ -42,14 +42,14 @@ impl ChangeProgressPCMD {
 
     fn get_libentity(&self, app: &mut App) -> CMDResult<LibEntityMut> {
         app.library_mut().get_libentity_mut_by_id(self.id)?
-            .ok_or_else(|| ChangeProgressError::LibEntityWasNotFound { id: self.id })
+            .ok_or_else(|| CMDError::LibEntityWasNotFound { id: self.id })
     }
 
     fn execute_inner(&self, app: &mut App) -> CMDResult<Progress> {
         let mut libentity = self.get_libentity(app)?;
 
         let mut progress = libentity.progress()?
-            .ok_or_else(|| ChangeProgressError::ProgressWasNotFound)?;
+            .ok_or_else(|| CMDError::ProgressWasNotFound)?;
         self.progress_update.execute_for(&mut progress)?;
 
         libentity.set_progress(Some(progress))?;

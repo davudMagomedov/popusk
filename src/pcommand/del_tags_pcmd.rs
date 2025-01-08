@@ -10,10 +10,10 @@ use std::num::ParseIntError;
 
 use thiserror::Error as ThisError;
 
-type CMDResult<T, E = DelTagsError> = Result<T, E>;
+type CMDResult<T, E = CMDError> = Result<T, E>;
 
 #[derive(Debug, ThisError)]
-enum DelTagsError {
+enum CMDError {
     #[error("library entity with ID {id} wasn't found")]
     LibEntityWasNotFound { id: ID },
 
@@ -73,7 +73,7 @@ impl DelTagsPCMD {
     fn get_libentity(&self, app: &mut App) -> CMDResult<LibEntityMut> {
         app.library_mut()
             .get_libentity_mut_by_id(self.id)?
-            .ok_or_else(|| DelTagsError::LibEntityWasNotFound { id: self.id })
+            .ok_or_else(|| CMDError::LibEntityWasNotFound { id: self.id })
     }
 
     fn execute_inner(&self, app: &mut App) -> CMDResult<()> {

@@ -11,10 +11,10 @@ use std::path::PathBuf;
 
 use thiserror::Error as ThisError;
 
-type CMDResult<T, E = OpenError> = Result<T, E>;
+type CMDResult<T, E = CMDError> = Result<T, E>;
 
 #[derive(Debug, ThisError)]
-enum OpenError {
+enum CMDError {
     #[error("could not find library entity with path '{path}'")]
     CouldNotFindLibEntity { path: PathBuf },
     #[error("expected new progress from 'open_libentity' script")]
@@ -46,7 +46,7 @@ impl OpenPCMD {
     fn get_libentity(&self, app: &mut App) -> CMDResult<LibEntityMut> {
         match app.library_mut().get_libentity_mut(self.path.clone())? {
             Some(libentity) => Ok(libentity),
-            None => Err(OpenError::CouldNotFindLibEntity { path: self.path.clone() })
+            None => Err(CMDError::CouldNotFindLibEntity { path: self.path.clone() })
         }
     }
     
@@ -66,7 +66,7 @@ impl OpenPCMD {
         maybe_new_progress: Option<Progress>,
         etype: EntityType,
     ) -> CMDResult<Option<Progress>> {
-        use OpenError::{ExpectedNewProgress, UnexpectedNewProgress};
+        use CMDError::{ExpectedNewProgress, UnexpectedNewProgress};
 
         if libentity_has_progress(etype) {
             match maybe_new_progress {

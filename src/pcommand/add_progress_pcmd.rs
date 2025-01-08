@@ -7,10 +7,10 @@ use crate::error_ext::CommonizeResultExt;
 
 use thiserror::Error as ThisError;
 
-type CMDResult<T> = Result<T, AddProgressError>;
+type CMDResult<T> = Result<T, CMDError>;
 
 #[derive(Debug, ThisError)]
-enum AddProgressError {
+enum CMDError {
     #[error("could not find library entity with ID {id}")]
     CouldNotFindLibEntity { id: ID },
 
@@ -35,7 +35,7 @@ impl AddProgressPCMD {
     fn get_libentity(&self, app: &mut App) -> CMDResult<LibEntityMut> {
         match app.library_mut().get_libentity_mut_by_id(self.id)? {
             Some(libentity) => Ok(libentity),
-            None => Err(AddProgressError::CouldNotFindLibEntity { id: self.id })
+            None => Err(CMDError::CouldNotFindLibEntity { id: self.id })
         }
     }
 

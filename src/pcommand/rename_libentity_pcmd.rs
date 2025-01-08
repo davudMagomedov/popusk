@@ -11,10 +11,10 @@ use std::io::Error as IoError;
 
 use thiserror::Error as ThisError;
 
-type CMDResult<T, E = RenameLibEntityError> = Result<T, E>;
+type CMDResult<T, E = CMDError> = Result<T, E>;
 
 #[derive(Debug, ThisError)]
-enum RenameLibEntityError {
+enum CMDError {
     #[error("could not find library entity with path '{path}'")]
     CouldNotFindLibEntity { path: PathBuf },
     #[error("there is already library entity with path '{path}'")]
@@ -81,13 +81,13 @@ impl RenameLibEntityPCMD {
     fn error_if_old_libentity_dont_exist(&self, app: &App) -> CMDResult<()> {
         match self.old_libentity_exists(app)? {
             true => Ok(()),
-            false => Err(RenameLibEntityError::CouldNotFindLibEntity { path: self.path.clone() }),
+            false => Err(CMDError::CouldNotFindLibEntity { path: self.path.clone() }),
         }
     }
 
     fn error_if_new_libentity_exists(&self, app: &App) -> CMDResult<()> {
         match self.new_libentity_exists(app)? {
-            true => Err(RenameLibEntityError::LibEntityAlreadyExists { path: self.new_path.clone() }),
+            true => Err(CMDError::LibEntityAlreadyExists { path: self.new_path.clone() }),
             false => Ok(()),
         }
     }
@@ -95,13 +95,13 @@ impl RenameLibEntityPCMD {
     fn error_if_path_dont_exist(&self) -> CMDResult<()> {
         match self.path.exists() {
             true => Ok(()),
-            false => Err(RenameLibEntityError::FileDoesNotExist { path: self.path.clone() }),
+            false => Err(CMDError::FileDoesNotExist { path: self.path.clone() }),
         }
     }
 
     fn error_if_new_path_exists(&self) -> CMDResult<()> {
         match self.new_path.exists() {
-            true => Err(RenameLibEntityError::FileAlreadyExists { path: self.new_path.clone() }),
+            true => Err(CMDError::FileAlreadyExists { path: self.new_path.clone() }),
             false => Ok(()),
         }
     }

@@ -8,10 +8,10 @@ use super::{PCommand, PExecutionError};
 
 use thiserror::Error as ThisError;
 
-type CMDResult<T, E = GetEntitybaseError> = Result<T, E>;
+type CMDResult<T, E = CMDError> = Result<T, E>;
 
 #[derive(Debug, ThisError)]
-enum GetEntitybaseError {
+enum CMDError {
     #[error("library entity with ID {id} wasn't found")]
     LibEntityWasNotFound { id: ID },
 
@@ -34,7 +34,7 @@ impl GetEntitybasePCMD {
     fn get_libentity(&self, app: &App) -> CMDResult<LibEntityConst> {
         app.library()
             .get_libentity_by_id(self.id)?
-            .ok_or_else(|| GetEntitybaseError::LibEntityWasNotFound { id: self.id })
+            .ok_or_else(|| CMDError::LibEntityWasNotFound { id: self.id })
     }
 
     fn execute_inner(&self, app: &mut App) -> CMDResult<EntityBase> {

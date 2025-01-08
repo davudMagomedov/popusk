@@ -9,10 +9,10 @@ use std::path::PathBuf;
 
 use thiserror::Error as ThisError;
 
-type CMDResult<T, E = GetIDError> = Result<T, E>;
+type CMDResult<T, E = CMDError> = Result<T, E>;
 
 #[derive(Debug, ThisError)]
-enum GetIDError {
+enum CMDError {
     #[error("library entity with path '{path}' wasn't found")]
     LibEntityWasNotFound { path: PathBuf },
 
@@ -35,7 +35,7 @@ impl GetIDPCMD {
     fn get_libentity(&self, app: &App) -> CMDResult<LibEntityConst> {
         app.library()
             .get_libentity(self.path.clone())?
-            .ok_or_else(|| GetIDError::LibEntityWasNotFound { path: self.path.clone() })
+            .ok_or_else(|| CMDError::LibEntityWasNotFound { path: self.path.clone() })
     }
 
     fn execute_inner(&self, app: &mut App) -> CMDResult<ID> {
