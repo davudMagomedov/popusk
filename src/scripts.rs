@@ -201,6 +201,14 @@ impl Scripts {
     }
 }
 
+fn scripts_preamble(scripts_directory: &Path) -> String {
+    format!(
+        "package.path = package.path .. \";{0}/lua/?.lua\"\n\
+         package.path = package.path .. \";{0}/?.lua\"",
+        scripts_directory.to_string_lossy(),
+    )
+}
+
 /// alias to `open_scripts_with_directory(&directory.join(SCRIPTS_FILE_NAME))`
 pub fn open_scripts_from_directory(directory: &Path) -> Result<Scripts, ScriptsError> {
     open_scripts_from_file(&directory.join(SCRIPTS_FILE_NAME))
@@ -208,14 +216,19 @@ pub fn open_scripts_from_directory(directory: &Path) -> Result<Scripts, ScriptsE
 
 pub fn open_scripts_from_file(scriptfile: &Path) -> Result<Scripts, ScriptsError> {
     let lua = Lua::new_with(StdLib::ALL_SAFE, LuaOptions::new())?;
-    let lua_file_content = match std::fs::read_to_string(scriptfile) {
+    let lua_main_content = match std::fs::read_to_string(scriptfile) {
         Ok(lfc) => lfc,
         Err(io_error) if io_error.kind() == IoErrorKind::NotFound => {
             return Err(ScriptsError::ScriptsFileWasNotFound(scriptfile.to_owned()));
         }
         Err(io_error) => return Err(ScriptsError::IOErrorWithScriptsFile(io_error)),
     };
-    lua.load(lua_file_content).exec()?;
+    let lua_content_preamble = scripts_preamble(
+        scriptfile.parent().expect("TODO: what if scripfile is in root directory")
+    );
+    let lua_content = lua_content_preamble + &lua_main_content;
+
+    lua.load(&lua_content).exec()?;
 
     Ok(Scripts { lua })
 }
