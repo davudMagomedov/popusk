@@ -41,10 +41,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
 fn main() -> ExitCode {
     if let Err(err) = run() {
-        println!("Error: {}", err);
-
+        eprintln!("Error: {}", err);
         return ExitCode::FAILURE;
     }
 
-    return ExitCode::SUCCESS;
+    ExitCode::SUCCESS
 }
