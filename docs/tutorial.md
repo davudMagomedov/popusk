@@ -28,8 +28,9 @@ There are visual commands (i.e. the main purpose of which is to display aestheti
     - *Document*. In theory, the most common. It is something that can be opened as a book, document, etc.
     - *Section*. Points to directory.
     - *Regular file*. Everything else.
-6. *Progress*. Exists only if the *entity type* is *document* (because *section* and *regular file* can't be opened).
+6. *Progress*. Definetly exists if the *entity type* is *document*.
 7. *Description*. Optional.
+8. *FreeData*. Optional.
 
 ### Progress
 
@@ -37,21 +38,26 @@ A library entity with `etype == "document"` must have a *progress*. Otherwise, t
 
 Progress contains *passed* and *ceiling* values. For example, let's have a book with 571 pages in total and your imaginary bookmark is on 184 page. This information is kept in *progress* with `passed = 184` and `ceiling = 571`.
 
+### Free Data
+
+*FreeData* stores all values that do not fit in the fields of *LibraryEntity*. It is a dictionary in the root.
+
+There are several types that *FreeData* supports:
+1. *String*
+2. *Integer*
+3. *Float*
+4. *Boolean*
+5. *Dictionary* is `Map<String, Object>`
+6. *Array*
+7. *Null*
+
 ## Low-level commands
 
 **Remember: you should never use low-level commands unless you got a bug related to the app**.
 
-There're following *llc* (*l*ow-*l*evel *c*ommands):
-1. `llc_add_path`.
-2. `llc_add_entitybase`.
-3. `llc_add_progress`.
-4. `llc_add_description`.
-5. `llc_del_path`.
-6. `llc_del_entitybase`.
-7. `llc_del_progress`.
-8. `llc_del_description`.
-
 You operate with *llc* via *ID*, not *path*.
+
+Low-level commands starts with `llc_`. Check the `popusk help`.
 
 ## *Beautiful* commands
 

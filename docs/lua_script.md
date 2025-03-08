@@ -35,9 +35,10 @@ Contains information about library entity in the library.
 
 ## Scripts file
 
-Scripts file has path `$HOME/.config/popusk/scripts.lua` and has the following content (note that definitions of the functions are abstract and differ from valid *lua*-definitions).
+Scripts file has path `$HOME/.config/popusk/scripts.lua` by default and has the following content (note that definitions of the functions are abstract and differ from valid *lua*-definitions).
 1. Function `look_output(libentity: LibEntity, context: Context) -> string`. Forms output for the `look` command.
 2. Function `list_output_narrow(libentities: Array<LibEntity>, context: Context) -> string`. Forms output for the `list` command.
 3. Function `list_output_wide(libentities: Array<LibEntity>, context: Context) -> string`. Forms output for the `list --wide` command.
 4. Function `open_libentity(libentity: LibEntity, context: Context) -> Progress`. Opens library entity for `open` command and returns a new progress.
 5. Function `is_document(extension: string) -> boolean`. Returns `true` if the given extension falls under the document category, otherwise the function must return `false`.
+6. Function `add_library_entity(path: Path) -> LibEntityData`. `LibEntityData` is `LibEntity` without ID field (because an ID is not selected by a user).
