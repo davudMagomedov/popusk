@@ -2,7 +2,7 @@ use super::{PCommand, PExecutionError};
 
 use crate::app::App;
 use crate::types::{ID, FreeData, json_to_freedata, LibEntityMetaError, LibEntityMut};
-use crate::error_ext::{ComError, CommonizeResultExt, IntoBoxExt};
+use crate::error_ext::{ComError, CommonizeResultExt};
 use crate::io_ext::IoExt;
 use crate::library::LibraryError;
 use crate::storage::StorageError;
@@ -38,18 +38,6 @@ enum CMDError {
     Library(#[from] LibraryError),
     #[error("library entity: {0}")]
     LibEntityMeta(#[from] LibEntityMetaError),
-}
-
-impl From<CMDError> for PExecutionError {
-    fn from(afde: CMDError) -> Self {
-        use CMDError::*;
-
-        match afde {
-            Storage(storage_error) => PExecutionError::StorageError(storage_error),
-            IO(io_error) => PExecutionError::IO(io_error),
-            other => PExecutionError::Other(other.into_box())
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

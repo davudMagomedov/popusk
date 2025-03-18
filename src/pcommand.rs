@@ -10,17 +10,9 @@
 //! 3. Libentity with type (EntityType) `Section` must not have progress.
 //! 4. Libentity with type (EntityType) `Regular` must not have progress.
 
-use crate::app::{App, AppError};
-use crate::core_commands::CoreError;
+use crate::app::App;
 use crate::error_ext::ComError;
-use crate::library::LibraryError;
-use crate::scripts::ScriptsError;
-use crate::storage::StorageError;
-use crate::types::ProgressUpdateError;
 
-use std::io::Error as IoError;
-
-use bincode::Error as BincodeError;
 use thiserror::Error;
 
 mod add_description_pcmd;
@@ -71,23 +63,6 @@ pub use status_pcmd::*;
 
 #[derive(Debug, Error)]
 pub enum PExecutionError {
-    #[error("app error: {0}")]
-    AppError(#[from] AppError),
-    #[error("execution error: {0}")]
-    CoreError(#[from] CoreError),
-    #[error("io error: {0}")]
-    IO(#[from] IoError),
-    #[error("serialization/deserialization error: {0}")]
-    SerDeser(#[from] BincodeError),
-    #[error("storage error: {0}")]
-    StorageError(#[from] StorageError),
-    #[error("scripts error: {0}")]
-    ScriptsError(#[from] ScriptsError),
-    #[error("progress update error: {0}")]
-    ProgressUpdateError(#[from] ProgressUpdateError),
-    #[error("library error: {0}")]
-    LibraryError(#[from] LibraryError),
-
     #[error("{0}")]
     Other(#[from] ComError),
 }
