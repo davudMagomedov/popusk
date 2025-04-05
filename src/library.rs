@@ -1,10 +1,11 @@
 use crate::storage::{Storage, StorageError};
-use crate::types::{ID, LibEntityMetaError, LibEntityMut,
-                   LibEntityConst, LibEntityData, EntityBase};
+use crate::types::{
+    EntityBase, LibEntityConst, LibEntityData, LibEntityMetaError, LibEntityMut, ID,
+};
 
+use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 use thiserror::Error;
 
@@ -32,7 +33,9 @@ pub struct Library {
 
 impl Library {
     pub fn new(storage: Storage) -> Self {
-        Library { storage: Rc::new(RefCell::new(storage)) }
+        Library {
+            storage: Rc::new(RefCell::new(storage)),
+        }
     }
 
     pub fn get_libentity(&self, path: PathBuf) -> LibraryResult<Option<LibEntityConst>> {
@@ -76,22 +79,29 @@ impl Library {
     /// SAFETY: satisfy library entity rules such as necessary entitybase.
     pub unsafe fn create_empty_libentity(&mut self, path: PathBuf) -> LibraryResult<LibEntityMut> {
         let id = self.link_id_to_path(path.clone())?;
-        let libentity = unsafe { 
-            LibEntityMut::new_with_path_id_unchecked(self.storage(), id, path)?
-        };
+        let libentity =
+            unsafe { LibEntityMut::new_with_path_id_unchecked(self.storage(), id, path)? };
 
         Ok(libentity)
     }
 
     /// Creates library entity without dumping to storage.
-    pub fn create_libentity_from_libentitydata(&mut self, libentity_data: LibEntityData)
-    -> LibraryResult<LibEntityMut> {
+    pub fn create_libentity_from_libentitydata(
+        &mut self,
+        libentity_data: LibEntityData,
+    ) -> LibraryResult<LibEntityMut> {
         // TODO: This is shit code. It uses LibEntityMut for creating a libentity, whereas
         // LibEntityMut is created with suggestion that the libentity already exists! This
         // definetly should be changed.
 
         let LibEntityData {
-            path, name, etype, tags, progress, description, freedata
+            path,
+            name,
+            etype,
+            tags,
+            progress,
+            description,
+            freedata,
         } = libentity_data;
 
         let mut libentity = unsafe { self.create_empty_libentity(path)? };
@@ -111,6 +121,15 @@ impl Library {
 
     pub fn libentity_exists(&self, path: PathBuf) -> LibraryResult<bool> {
         Ok(self.storage.borrow().get_id(path)?.is_some())
+    }
+
+    pub fn get_all_libentities(&self) -> LibraryResult<Vec<LibEntityConst>> {
+        self.storage
+            .borrow()
+            .keys_path()?
+            .into_iter()
+            .map(|path| Ok(self.get_libentity(path)?.expect("expected Some(libentity)")))
+            .collect()
     }
 
     unsafe fn link_id_to_path(&mut self, path: PathBuf) -> LibraryResult<ID> {
