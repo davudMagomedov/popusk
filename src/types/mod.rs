@@ -5,6 +5,7 @@ pub mod libentity;
 pub mod progress;
 pub mod progress_update;
 pub mod libentity_meta;
+pub mod style;
 
 pub use entity_base::*;
 pub use freedata::*;
@@ -13,3 +14,4 @@ pub use libentity::*;
 pub use progress::*;
 pub use progress_update::*;
 pub use libentity_meta::*;
+pub use style::*;
