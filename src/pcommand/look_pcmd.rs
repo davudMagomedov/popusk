@@ -2,7 +2,7 @@ use crate::app::App;
 use crate::error_ext::{ComError, CommonizeResultExt};
 use crate::scripts::{Context, ScriptsError};
 use crate::library::LibraryError;
-use crate::types::{LibEntityMetaError, LibEntity};
+use crate::types::{LibEntityMetaError, LibEntity, StyledText};
 
 use super::{PCommand, PExecutionError};
 
@@ -55,7 +55,7 @@ impl LookPCMD {
         }
     }
 
-    fn execute_inner(&self, app: &mut App) -> CMDResult<String> {
+    fn execute_inner(&self, app: &mut App) -> CMDResult<StyledText> {
         let libentity = self.get_libentity(app)?;
         let context = self.make_context(app)?;
         let result = app.scripts().look_output(libentity, context)?;

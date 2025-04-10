@@ -1,7 +1,7 @@
 use crate::app::App;
 use crate::error_ext::{ComError, CommonizeResultExt};
 use crate::scripts::{ScriptsError, Context};
-use crate::types::{LibEntity, LibEntityMetaError};
+use crate::types::{LibEntity, LibEntityMetaError, StyledText};
 use crate::library::LibraryError;
 use crate::storage::StorageError;
 
@@ -73,7 +73,7 @@ impl ListPCMD {
         }
     }
 
-    fn execute_inner(&self, app: &mut App) -> CMDResult<String> {
+    fn execute_inner(&self, app: &mut App) -> CMDResult<StyledText> {
         let libentities = self.libentities(app)?;
         let context = self.make_context(app)?;
 

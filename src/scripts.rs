@@ -1,5 +1,5 @@
 use crate::global_conf_directory::GlobalConfError;
-use crate::types::{LibEntity, LibEntityData, Progress};
+use crate::types::{LibEntity, LibEntityData, Progress, StyledText};
 
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
 use std::path::{Path, PathBuf};
@@ -102,12 +102,12 @@ impl Scripts {
         &self,
         libentity: LibEntity,
         context: Context,
-    ) -> ScriptsResult<String> {
+    ) -> ScriptsResult<StyledText> {
         let look_output_func = self
             .lua
             .globals()
             .get::<LuaFunction>(LOOK_SCRIPT_FUNCTION_NAME)?;
-        match look_output_func.call::<String>((libentity, context)) {
+        match look_output_func.call::<StyledText>((libentity, context)) {
             Ok(string) => Ok(string),
             Err(LuaError::RuntimeError(runtime_err_msg)) => {
                 return Err(ScriptsError::LuaRuntimeError(runtime_err_msg))
@@ -138,12 +138,12 @@ impl Scripts {
         &self,
         libentities: Vec<LibEntity>,
         context: Context,
-    ) -> ScriptsResult<String> {
+    ) -> ScriptsResult<StyledText> {
         let list_output_narrow_func = self
             .lua
             .globals()
             .get::<LuaFunction>(LIST_NARROW_SCRIPT_FUNCTION_NAME)?;
-        match list_output_narrow_func.call::<String>((libentities, context)) {
+        match list_output_narrow_func.call::<StyledText>((libentities, context)) {
             Ok(string) => Ok(string),
             Err(LuaError::RuntimeError(runtime_err_msg)) => {
                 return Err(ScriptsError::LuaRuntimeError(runtime_err_msg))
@@ -156,12 +156,12 @@ impl Scripts {
         &self,
         libentities: Vec<LibEntity>,
         context: Context,
-    ) -> ScriptsResult<String> {
+    ) -> ScriptsResult<StyledText> {
         let list_output_wide_func = self
             .lua
             .globals()
             .get::<LuaFunction>(LIST_WIDE_SCRIPT_FUNCTION_NAME)?;
-        match list_output_wide_func.call::<String>((libentities, context)) {
+        match list_output_wide_func.call::<StyledText>((libentities, context)) {
             Ok(string) => Ok(string),
             Err(LuaError::RuntimeError(runtime_err_msg)) => {
                 return Err(ScriptsError::LuaRuntimeError(runtime_err_msg))
