@@ -1,7 +1,9 @@
 /// The `style` module contains all the types which can be used to describe the style of the text.
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
+use colored::{ColoredString, Colorize};
+use mlua::{FromLua, Lua, Value as LuaValue};
 use once_cell::sync::OnceCell;
-use mlua::{FromLua, Value as LuaValue, Lua};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -19,6 +21,20 @@ pub struct StyleTag {
 }
 
 impl StyleTag {
+    pub fn bold(&self) -> bool {
+        self.biu >> 2 == 1
+    }
+
+    pub fn italic(&self) -> bool {
+        (self.biu >> 1) & 0b10 == 1
+    }
+
+    pub fn underlined(&self) -> bool {
+        self.biu & 0b1 == 1
+    }
+}
+
+impl StyleTag {
     const DEFAULT: Self = StyleTag {
         fore: Color::Default,
         back: Color::Default,
@@ -32,8 +48,41 @@ pub struct TextBurst {
     pub style_tag: StyleTag,
 }
 
+impl Display for TextBurst {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let mut text: ColoredString = self.text.clone().into();
+        if let Color::RGB([r, g, b]) = self.style_tag.fore {
+            text = text.truecolor(r, g, b);
+        }
+        if let Color::RGB([r, g, b]) = self.style_tag.back {
+            text = text.on_truecolor(r, g, b);
+        }
+
+        if self.style_tag.bold() {
+            text = text.bold();
+        }
+        if self.style_tag.italic() {
+            text = text.italic();
+        }
+        if self.style_tag.underlined() {
+            text = text.underline();
+        }
+
+        write!(f, "{}", text)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct StyledText(Vec<TextBurst>);
+
+impl Display for StyledText {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        for text_burst in &self.0 {
+            write!(f, "{}", text_burst)?;
+        }
+        Ok(())
+    }
+}
 
 impl FromLua for StyledText {
     fn from_lua(value: LuaValue, _lua: &Lua) -> mlua::Result<Self> {
@@ -122,9 +171,8 @@ fn parse_captures_into_textburst(captures: regex::Captures) -> TextBurst {
 
 /// Uses special syntax to turn regular text into stylyzed one.
 pub fn styled_text_from_string(s: &str) -> StyledText {
-    let reg = TEXTBURST_REGEX.get_or_init(
-        || unsafe { regex::Regex::new(TEXTBURST_REGEX_STRING).unwrap_unchecked() },
-    );
+    let reg = TEXTBURST_REGEX
+        .get_or_init(|| unsafe { regex::Regex::new(TEXTBURST_REGEX_STRING).unwrap_unchecked() });
     let mut styled_text = Vec::new();
 
     let mut previous_end = 0;
