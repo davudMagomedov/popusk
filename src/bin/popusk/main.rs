@@ -1,27 +1,17 @@
 #![allow(dead_code)]
 
-use clap::Parser;
-
-mod app;
-mod comps_appearance;
-mod comps_interaction;
-mod core_commands;
-mod error_ext;
-mod global_conf_directory;
-mod library;
-mod localconf;
+mod pcommand;
+mod io_ext;
 mod parse_cli;
 mod parse_cli_command;
-mod pcommand;
-mod scripts;
-mod storage;
-mod types;
-mod io_ext;
-mod wacommand; // w(ithout)a(pplication)command
+mod wacommand;
 
-use app::App;
+use clap::Parser;
+
 use parse_cli::CLI;
 use parse_cli_command::{parse_cli_command, P_WA_Command};
+
+use popusk::app::App;
 
 use std::process::ExitCode;
 

@@ -10,8 +10,8 @@
 //! 3. Libentity with type (EntityType) `Section` must not have progress.
 //! 4. Libentity with type (EntityType) `Regular` must not have progress.
 
-use crate::app::App;
-use crate::error_ext::ComError;
+use popusk::app::App;
+use popusk::error_ext::ComError;
 
 use thiserror::Error;
 

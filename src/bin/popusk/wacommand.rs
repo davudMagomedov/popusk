@@ -1,5 +1,5 @@
-use crate::app::AppError;
-use crate::core_commands::CoreError;
+use popusk::app::AppError;
+use popusk::core_commands::CoreError;
 
 use std::io::Error as IoError;
 
@@ -33,7 +33,7 @@ impl InitWACMD {
 
 impl WACommand for InitWACMD {
     fn execute(&self) -> Result<(), WAExexutionError> {
-        crate::core_commands::corecmd_init_current_directory()?;
+        popusk::core_commands::corecmd_init_current_directory()?;
         Ok(())
     }
 }
@@ -48,7 +48,7 @@ impl UpdateWAPCMD {
 
 impl WACommand for UpdateWAPCMD {
     fn execute(&self) -> Result<(), WAExexutionError> {
-        crate::core_commands::corecmd_update_current_directory()?;
+        popusk::core_commands::corecmd_update_current_directory()?;
         Ok(())
     }
 }

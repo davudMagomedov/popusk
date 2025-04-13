@@ -1,7 +1,5 @@
-use crate::comps_appearance::{progress_from_string, progress_update_from_string};
-use crate::types::Progress;
-use crate::types::ProgressUpdate;
-use crate::types::ID;
+use popusk::comps_appearance::{progress_from_string, progress_update_from_string};
+use popusk::{Progress, ProgressUpdate, ID};
 
 use std::path::PathBuf;
 
