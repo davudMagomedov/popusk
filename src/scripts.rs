@@ -184,6 +184,21 @@ impl Scripts {
             Err(lua_error) => return Err(lua_error.into()),
         }
     }
+
+    pub fn is_document(&self, extension: String) -> Result<bool, ScriptsError> {
+        let is_document_func = self
+            .lua
+            .globals()
+            .get::<LuaFunction>(IS_DOCUMENT_SCRIPT_FUNCTION_NAME)?;
+
+        match is_document_func.call::<bool>(extension) {
+            Ok(is_document) => Ok(is_document),
+            Err(LuaError::RuntimeError(runtime_err_msg)) => {
+                return Err(ScriptsError::LuaRuntimeError(runtime_err_msg))
+            }
+            Err(lua_error) => return Err(lua_error.into()),
+        }
+    }
 }
 
 fn scripts_preamble(scripts_directory: &Path) -> String {
