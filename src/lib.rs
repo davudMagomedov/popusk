@@ -9,6 +9,9 @@ pub mod localconf;
 pub mod scripts;
 pub mod storage;
 pub mod types;
+pub mod custom_fs;
+
+pub mod entity_data;
 
 pub use types::*;
 pub use error_ext::*;
