@@ -1,31 +1,11 @@
+use super::{PCommand, PEResult, PExecError};
+
 use popusk::app::App;
-use popusk::error_ext::CommonizeResultExt;
-use popusk::types::{Tag, ID, LibEntityMut, LibEntityMetaError};
-use popusk::library::LibraryError;
+use popusk::error_ext::ErrorExt;
+use popusk::types::{LibEntityMut, Tag};
 
-use super::{PCommand, PExecutionError};
-
-use std::io::{stdin, Error as IoError};
-use std::num::ParseIntError;
-
-use thiserror::Error as ThisError;
-
-type CMDResult<T, E = CMDError> = Result<T, E>;
-
-#[derive(Debug, ThisError)]
-enum CMDError {
-    #[error("library entity with ID {id} wasn't found")]
-    LibEntityWasNotFound { id: ID },
-
-    #[error("could not parse integer: {0}")]
-    ParseInt(#[from] ParseIntError),
-    #[error("library entity: {0}")]
-    LibEntityMeta(#[from] LibEntityMetaError),
-    #[error("library: {0}")]
-    Library(#[from] LibraryError),
-    #[error("i/o: {0}")]
-    IO(#[from] IoError),
-}
+use std::io::stdin;
+use std::path::PathBuf;
 
 fn delete_indexes_in_vector<T>(base_vector: Vec<T>, delete_indexes: &[usize]) -> Vec<T> {
     base_vector
@@ -43,7 +23,7 @@ fn delete_indexes_in_vector<T>(base_vector: Vec<T>, delete_indexes: &[usize]) ->
 
 #[derive(Debug, Clone)]
 pub struct DelTagsPCMD {
-    id: ID,
+    path: PathBuf,
 }
 
 fn print_tags(tags: &[Tag]) {
@@ -52,49 +32,62 @@ fn print_tags(tags: &[Tag]) {
         .for_each(|(index, tag)| println!("{}: {}", index, tag))
 }
 
-fn get_indexes_to_delete() -> CMDResult<Vec<usize>> {
+fn read_indexes_to_delete() -> PEResult<Vec<usize>> {
     let mut buf = String::new();
-    stdin().read_line(&mut buf)?;
+    stdin()
+        .read_line(&mut buf)
+        .map_err(|ioerr| PExecError::StdinStream { ioerr })?;
     buf = buf.trim().to_string();
 
     let indexes = buf
         .split_whitespace()
-        .map(|stried_index| stried_index.parse::<usize>())
-        .collect::<Result<Vec<usize>, ParseIntError>>()?;
+        .map(|stried_index| {
+            stried_index
+                .parse::<usize>()
+                .map_err(|interr| PExecError::DeserError {
+                    format: "string",
+                    component: "index (unsigned integer)",
+                    error: interr.into_box(),
+                })
+        })
+        .collect::<PEResult<Vec<usize>>>()?;
 
     Ok(indexes)
 }
 
 impl DelTagsPCMD {
-    pub fn new(id: ID) -> Self {
-        DelTagsPCMD { id }
+    pub fn new(path: PathBuf) -> Self {
+        DelTagsPCMD { path }
     }
 
-    fn get_libentity(&self, app: &mut App) -> CMDResult<LibEntityMut> {
+    fn get_libentity(&self, app: &mut App) -> PEResult<LibEntityMut> {
         app.library_mut()
-            .get_libentity_mut_by_id(self.id)?
-            .ok_or_else(|| CMDError::LibEntityWasNotFound { id: self.id })
+            .get_libentity_mut(self.path.clone())
+            .ok_or_else(|| PExecError::LibEntityWasNotFound {
+                entitypath: self.path.clone(),
+            })
     }
 
-    fn execute_inner(&self, app: &mut App) -> CMDResult<()> {
+    fn execute_inner(&self, app: &mut App) -> PEResult<()> {
         let mut libentity = self.get_libentity(app)?;
-        let tags = libentity.tags()?;
+        let tags = libentity.tags();
 
         print_tags(&tags);
-        let indexes_to_delete = get_indexes_to_delete()?;
+        let indexes_to_delete = read_indexes_to_delete()?;
 
         let updated_tags = delete_indexes_in_vector(tags, &indexes_to_delete);
-        libentity.set_tags(updated_tags)?;
-        libentity.dump_to_storage()?;
+        libentity.set_tags(updated_tags);
+        libentity.dump_to_storage();
 
         Ok(())
     }
 }
 
 impl PCommand for DelTagsPCMD {
-    fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        self.execute_inner(app).commonize()?;
-        println!("The selected tags ware deleted");
+    fn execute(&self, app: &mut App) -> PEResult<()> {
+        self.execute_inner(app)?;
+
+        println!("The selected tags were deleted");
 
         Ok(())
     }

@@ -35,11 +35,7 @@ pub fn parse_string_to_tags(stringifed_tags: &str) -> ComResult<Vec<Tag>> {
 }
 
 pub fn entitybase_to_oneline_string(entitybase: &EntityBase) -> String {
-    format!(
-        "{{ id: {}, name: '{}' }}",
-        entitybase.id(),
-        entitybase.name()
-    )
+    format!("{{ name: '{}', ... }}", entitybase.name)
 }
 
 fn tags_to_string(tags: &[Tag]) -> String {
@@ -55,11 +51,10 @@ fn tags_to_string(tags: &[Tag]) -> String {
 
 pub fn entitybase_to_fullinfo_string(entitybase: &EntityBase) -> String {
     format!(
-        "Name: '{}'\nID: {}\nType: {}\nTags: {}",
-        entitybase.name(),
-        entitybase.id(),
-        entitytype_to_string(entitybase.etype()),
-        tags_to_string(entitybase.tags()),
+        "Name: '{}'\nType: {}\nTags: {}",
+        entitybase.name,
+        entitytype_to_string(entitybase.etype),
+        tags_to_string(&entitybase.tags),
     )
 }
 
@@ -93,13 +88,13 @@ fn parse_string_to_integer(string: &str) -> ComResult<usize> {
 
 pub fn progress_update_from_string(s: &str) -> ComResult<ProgressUpdate> {
     match s.get(0..1) {
-        Some(plus) if plus == "+" => match s.get(1..) {
+        Some("+") => match s.get(1..) {
             Some(stried_number) => Ok(ProgressUpdate::increase(parse_string_to_integer(
                 stried_number,
             )?)),
             None => unreachable!(), // Cause we've succesfully got `s.get(0..1)` above.
         },
-        Some(minus) if minus == "-" => match s.get(1..) {
+        Some("-") => match s.get(1..) {
             Some(stried_number) => Ok(ProgressUpdate::decrease(parse_string_to_integer(
                 stried_number,
             )?)),

@@ -1,59 +1,50 @@
-use crate::library::{Library, LibraryError};
-use crate::localconf::{
-    read_filled_local_config, LocalConfigError, LocalConfigFilled,
-};
+use crate::entity_data::{EDError, EntityData};
+use crate::library::Library;
+use crate::localconf::{read_local_config, LCError, LocalConfig};
 use crate::scripts::{open_scripts_from_directory, Scripts, ScriptsError};
-use crate::storage::{Storage, StorageError};
 
 use std::path::Path;
 
 use thiserror::Error;
 
-const WORKING_DIR: &str = ".popusk";
+pub const WORKING_DIR: &str = ".popusk";
+pub const ED_WORKING_SUBDIR: &str = "eds";
+/// Is toml file. Must have dot in the beginning.
+pub const LOCAL_CONFIG_FNAME: &str = ".popuskconf.toml";
 
 #[derive(Debug, Error)]
 pub enum AppError {
-    #[error("library error: {0}")]
-    LibraryError(#[from] LibraryError),
     #[error("storage error: {0}")]
-    StorageError(#[from] StorageError),
+    EDError(#[from] EDError),
     #[error("scripts: {0}")]
     ScriptsError(#[from] ScriptsError),
     #[error("local config error: {0}")]
-    LocalConfigError(#[from] LocalConfigError),
+    LocalConfigError(#[from] LCError),
 }
 
 /// Contains all information about application state - storage, config, etc.
 pub struct App {
     library: Library,
     scripts: Scripts,
-    local_config: LocalConfigFilled,
+    #[allow(dead_code)]
+    local_config: LocalConfig,
 }
 
 impl App {
-    // alias to `App::open_with(CURRENT_DIR)`
-    pub fn open() -> Result<Self, AppError> {
-        App::open_with(Path::new("."))
-    }
-
-    // alias to `App::create_with(CURRENT_DIR)`
-    pub fn create() -> Result<(), AppError> {
-        App::create_with(Path::new("."))
-    }
-
-    pub fn open_with(library_path: &Path) -> Result<Self, AppError> {
-        let local_config = read_filled_local_config(library_path)?;
-        let storage = Storage::open_with_working_dir(&library_path.join(WORKING_DIR))?;
+    pub fn new(library_path: &Path) -> Result<Self, AppError> {
+        let local_config = read_local_config(&library_path.join(LOCAL_CONFIG_FNAME))?;
+        let entity_data = EntityData::new(library_path.join(WORKING_DIR).join(ED_WORKING_SUBDIR));
 
         Ok(App {
-            library: Library::new(storage),
-            scripts: open_scripts_from_directory(local_config.global_config_path())?,
+            library: Library::new(entity_data),
+            scripts: open_scripts_from_directory(local_config.config_path())?,
             local_config,
         })
     }
 
-    pub fn create_with(library_path: &Path) -> Result<(), AppError> {
-        let _storage = Storage::create_with_working_dir(&library_path.join(WORKING_DIR))?;
+    pub fn create_new(library_path: &Path) -> Result<(), AppError> {
+        let _entity_data =
+            EntityData::create_new(library_path.join(WORKING_DIR).join(ED_WORKING_SUBDIR))?;
         Ok(())
     }
 
@@ -63,6 +54,10 @@ impl App {
 
     pub fn library_mut(&mut self) -> &mut Library {
         &mut self.library
+    }
+
+    pub fn local_config(&self) -> &LocalConfig {
+        &self.local_config
     }
 
     pub fn scripts(&self) -> &Scripts {

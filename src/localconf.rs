@@ -1,130 +1,115 @@
-//! This modules provides, mainly, two structures: `LocalConfig` and `LocalConfigFilled`, they are
-//! two interconnected.
+//! This modules provides, mainly, two structures: `LocalConfigRaw` and `LocalConfig`, they are two
+//! interconnected.
 //!
 //! ```plain
-//! LocalConfig ===+=> LocalConfigFilled
-//!                |
-//!             +--+
+//! LocalConfigRaw ==+==> LocalConfig
+//!                  |
+//!             +----+
 //!             |
 //! Replacing what is possible
 //! ```
 //!
 //! ## LocalConfig
-//! `LocalConfig` is serializable and deserializable structure. Its fields depend on target family
+//! `LocalConfigRaw` is serializable and deserializable structure. Its fields depend on target family
 //! you use ("unix" or "windows").
 //!
-//! Since `LocalConfig`'s fields depend on OS, it needs to be converted to independent from an OS
-//! strcuture `LocalConfigFilled`.
+//! Since `LocalConfigRaw`'s fields depend on OS, it needs to be converted to independent from an OS
+//! structure `LocalConfig`.
 //!
-//! ## LocalConfigFilled
-//! `LocalConfigFilled` is "filled" version of `LocalConfig`.
+//! ## LocalConfig
+//! `LocalConfig` is "filled" version of `LocalConfigRaw`. For example, field
+//! `LocalConfigRaw.global_config_path` during turning to `LocalConfig` will be filled with the
+//! default value for unix systems '$HOME/.config/popusk'.
 
+use crate::custom_fs::{open_readfile, FSError};
+use crate::error_ext::ResultExt;
 use crate::global_conf_directory::{configdir, GlobalConfError};
 
-use std::fs::read_to_string as read_file_to_string;
-use std::io::{Error as IoError, ErrorKind as IoErrorKind};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 use toml::{de::Error as TomlDEError, from_str as toml_from_str};
 
-/// Must have a dot '.' in the start.
-pub const LOCAL_CONFIG_FILENAME: &str = ".popuskconf.toml";
+type LCResult<T> = Result<T, LCError>;
 
 #[derive(Debug, Error)]
-pub enum LocalConfigError {
-    #[error("file wasn't found: {path}")]
-    FileWasNotFound { path: PathBuf },
-    #[error("error during config file processing: {err}")]
-    ConfigProcessing { err: TomlDEError },
-    #[error("IO error: {0}")]
-    IO(#[from] IoError),
-    #[error("global config directory: {0}")]
+pub enum LCError {
+    #[error("error during processing local config file {lc_file}: {err}")]
+    ConfigProcessing { lc_file: PathBuf, err: TomlDEError },
+    #[error("{0}")]
+    FS(#[from] FSError),
+    #[error("{0}")]
     GLobalConfError(#[from] GlobalConfError),
 }
 
 #[derive(Debug, Clone)]
-pub struct LocalConfigFilled {
-    global_config_path: PathBuf,
+pub struct LocalConfig {
+    config_path: PathBuf,
 }
 
-impl LocalConfigFilled {
-    pub fn global_config_path(&self) -> &PathBuf {
-        &self.global_config_path
+impl LocalConfig {
+    pub fn config_path(&self) -> &PathBuf {
+        &self.config_path
     }
 }
 
 /// This is a structure-form of a local config file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LocalConfig {
+pub struct LocalConfigRaw {
     #[cfg(target_family = "unix")]
-    global_config_path: Option<PathBuf>,
+    config_path: Option<PathBuf>,
 
     #[cfg(target_family = "windows")]
-    global_config_path: PathBuf,
+    config_path: PathBuf,
 }
 
-impl LocalConfig {
-    pub fn fill(self) -> Result<LocalConfigFilled, LocalConfigError> {
+impl LocalConfigRaw {
+    pub fn fill(self) -> Result<LocalConfig, LCError> {
         #[cfg(target_family = "unix")]
-        match self.global_config_path {
-            Some(global_config_path) => Ok(LocalConfigFilled { global_config_path }),
-            None => Ok(LocalConfigFilled {
-                global_config_path: configdir()?,
+        match self.config_path {
+            Some(global_config_path) => Ok(LocalConfig {
+                config_path: global_config_path,
+            }),
+            None => Ok(LocalConfig {
+                config_path: configdir()?,
             }),
         }
 
         #[cfg(target_family = "windows")]
-        Ok(LocalConfigFilled {
-            global_config_path: self.global_config_path,
+        Ok(LocalConfig {
+            config_path: self.config_path,
         })
     }
 }
 
-/// Opens local-config file in given `library_path` and parse it to `LocalConfig`.
-///
-/// # Errors
-/// 1. If `library_path + LOCAL_CONFIG_FILENAME` doesn't exist.
-/// 2. If local config file has invalid data.
-/// 3. If an IO error happened.
-pub fn read_local_config(library_path: &Path) -> Result<LocalConfig, LocalConfigError> {
-    let local_config_path = library_path.join(LOCAL_CONFIG_FILENAME);
-    let file_content = match read_file_to_string(&local_config_path) {
-        Ok(file_content) => file_content,
-        Err(io_error) if io_error.kind() == IoErrorKind::NotFound => {
-            return Err(LocalConfigError::FileWasNotFound {
-                path: local_config_path,
+/// Opens local-config file and parses it to `LocalConfigRaw`.
+pub fn read_local_config_raw(local_config_path: &Path) -> LCResult<LocalConfigRaw> {
+    let mut file = open_readfile(local_config_path)?;
+    let mut file_content = String::new();
+    file.read_to_string(&mut file_content)
+        .unwrap_or_explosion_with(|| format!("reading {}", local_config_path.to_string_lossy(),));
+    let lc_raw: LocalConfigRaw = match toml_from_str(&file_content) {
+        Ok(v) => v,
+        Err(toml_err) => {
+            return Err(LCError::ConfigProcessing {
+                lc_file: local_config_path.to_path_buf(),
+                err: toml_err,
             })
         }
-        Err(io_error) => return Err(io_error.into()),
     };
-    let local_config: LocalConfig = match toml_from_str(&file_content) {
-        Ok(local_config) => local_config,
-        Err(err) => return Err(LocalConfigError::ConfigProcessing { err }),
-    };
-
-    Ok(local_config)
+    Ok(lc_raw)
 }
 
-/// More like `read_local_config` but with filled local config.
-pub fn read_filled_local_config(
-    library_path: &Path,
-) -> Result<LocalConfigFilled, LocalConfigError> {
-    let local_config_path = library_path.join(LOCAL_CONFIG_FILENAME);
-    let file_content = match read_file_to_string(&local_config_path) {
-        Ok(file_content) => file_content,
-        Err(io_error) if io_error.kind() == IoErrorKind::NotFound => {
-            return Ok(LocalConfigFilled {
-                global_config_path: configdir()?,
-            });
-        }
-        Err(io_error) => return Err(io_error.into()),
-    };
-    let local_config_filled: LocalConfigFilled = match toml_from_str::<LocalConfig>(&file_content) {
-        Ok(local_config) => local_config.fill()?,
-        Err(err) => return Err(LocalConfigError::ConfigProcessing { err }),
-    };
+pub fn read_local_config(local_config_path: &Path) -> LCResult<LocalConfig> {
+    // TODO: delete this as soon as unix-version LocalConfigRaw acquires non-optional field.
+    #[cfg(unix)]
+    if !local_config_path.exists() {
+        return Ok(LocalConfig {
+            config_path: configdir()?,
+        });
+    }
 
-    Ok(local_config_filled)
+    read_local_config_raw(local_config_path)?.fill()
 }

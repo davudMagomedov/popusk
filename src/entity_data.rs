@@ -1,13 +1,15 @@
 mod encode_path;
 
+use encode_path::{decode_path, encode_path};
+
 use crate::custom_fs::{
-    create_file, create_new_dir, open_readfile, remove_dir, remove_file, FSError,
+    create_file, create_new_dir, open_readfile, read_dir, remove_dir, remove_file, rename, FSError,
 };
 use crate::types::{EntityBase, FreeData, Progress};
 
 use std::fs;
 use std::io::{Error as IoError, Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use bincode::{deserialize as bincode_deserialize, serialize as bincode_serialize};
 use serde::{Deserialize, Serialize};
@@ -18,18 +20,45 @@ const DESCRIPTION_FILENAME: &str = "description";
 const PROGRESS_FILENAME: &str = "progress";
 const FREEDATA_FILENAME: &str = "freedata";
 
-const EBASE_NAME: &str = "entity base";
-const DESCRIPTION_NAME: &str = "description";
-const PROGRESS_NAME: &str = "progress";
-const FREEDATA_NAME: &str = "freedata";
+pub const EBASE_NAME: &str = "entity base";
+pub const DESCRIPTION_NAME: &str = "description";
+pub const PROGRESS_NAME: &str = "progress";
+pub const FREEDATA_NAME: &str = "freedata";
 
 macro_rules! iofile_err_map {
     ($res:expr, $path:expr) => {
         $res.map_err(|ioerr| EDError::IOFile {
             path: $path.to_owned(),
-            ioerr
+            ioerr,
         })
     };
+}
+
+fn into_simple_form(path: &Path) -> EDResult<PathBuf> {
+    let mut new_components: Vec<Component> = Vec::new();
+    for component in path.components() {
+        match component {
+            Component::RootDir | Component::Prefix(_) => {
+                return Err(EDError::IncorrectPath {
+                    path: path.to_owned(),
+                    msg: "root usage",
+                })
+            }
+            Component::ParentDir if new_components.is_empty() => {
+                return Err(EDError::IncorrectPath {
+                    path: path.to_owned(),
+                    msg: "parent directory usage",
+                })
+            }
+            Component::ParentDir => {
+                new_components.pop();
+            }
+            Component::Normal(_) => new_components.push(component),
+            Component::CurDir => (),
+        };
+    }
+
+    Ok(PathBuf::from_iter(new_components))
 }
 
 type EDResult<T> = Result<T, EDError>;
@@ -43,6 +72,10 @@ pub enum EDError {
         path: PathBuf,
         component: &'static str,
     },
+    #[error("could not read entry of entity data directory: {ioerr}")]
+    CouldNotReadEntryOfEntityDataDir { ioerr: IoError },
+    #[error("'{path}' is incorrect: {msg}")]
+    IncorrectPath { path: PathBuf, msg: &'static str },
 
     #[error("{0}")]
     FS(#[from] FSError),
@@ -68,32 +101,65 @@ impl EntityData {
         EntityData { path }
     }
 
+    pub fn create_new(path: PathBuf) -> EDResult<Self> {
+        create_new_dir(&path)?;
+        Ok(EntityData { path })
+    }
+
     pub fn exists(&self, epath: &Path) -> bool {
-        self.path.join(epath).exists()
+        self.make_libentity_path(epath)
+            .map(|pth| pth.exists())
+            .unwrap_or(false)
+    }
+
+    pub fn rename(&mut self, epath: &Path, new_epath: &Path) -> EDResult<()> {
+        rename(
+            &self.make_libentity_path(epath)?,
+            &self.make_libentity_path(new_epath)?,
+        )
+        .map_err(Into::into)
     }
 
     pub fn touch(&self, epath: &Path) -> EDResult<()> {
-        create_new_dir(&self.path.join(epath)).map_err(EDError::from)
+        create_new_dir(&self.make_libentity_path(epath)?).map_err(EDError::from)
+    }
+
+    pub fn list(&self) -> EDResult<impl Iterator<Item = EDResult<PathBuf>>> {
+        Ok(read_dir(&self.path)?.map(|entry| {
+            let entry_file_name = match entry {
+                Ok(entry) => entry.file_name(),
+                Err(ioerr) => return Err(EDError::CouldNotReadEntryOfEntityDataDir { ioerr }),
+            };
+            Ok(decode_path(&entry_file_name))
+        }))
     }
 
     pub fn delete(&self, epath: &Path) -> EDResult<()> {
-        remove_dir(&self.path.join(epath)).map_err(EDError::from)
+        remove_dir(&self.make_libentity_path(epath)?).map_err(EDError::from)
     }
 
     pub fn ebase_exists(&self, epath: &Path) -> bool {
-        self.make_component_path(epath, EBASE_FILENAME).exists()
+        self.make_component_path(epath, EBASE_FILENAME)
+            .map(|pth| pth.exists())
+            .unwrap_or(false)
     }
 
     pub fn description_exists(&self, epath: &Path) -> bool {
-        self.make_component_path(epath, DESCRIPTION_FILENAME).exists()
+        self.make_component_path(epath, DESCRIPTION_FILENAME)
+            .map(|pth| pth.exists())
+            .unwrap_or(false)
     }
 
     pub fn progress_exists(&self, epath: &Path) -> bool {
-        self.make_component_path(epath, PROGRESS_FILENAME).exists()
+        self.make_component_path(epath, PROGRESS_FILENAME)
+            .map(|pth| pth.exists())
+            .unwrap_or(false)
     }
 
     pub fn freedata_exists(&self, epath: &Path) -> bool {
-        self.make_component_path(epath, FREEDATA_FILENAME).exists()
+        self.make_component_path(epath, FREEDATA_FILENAME)
+            .map(|pth| pth.exists())
+            .unwrap_or(false)
     }
 
     pub fn get_ebase(&self, epath: &Path) -> EDResult<EntityBase> {
@@ -150,7 +216,7 @@ impl EntityData {
         component_filename: &'static str,
         component: &'static str,
     ) -> EDResult<T> {
-        let component_path = self.make_component_path(path, component_filename);
+        let component_path = self.make_component_path(path, component_filename)?;
         //let mut component_file = match open_readfile(&component_path) {
         //    Err(EntityDataError::CouldNotOpenFile { io_errkind: IoErrorKind::NotFound, .. }) =>
         //        return Ok(None),
@@ -179,7 +245,7 @@ impl EntityData {
         component_filename: &'static str,
         obj: T,
     ) -> EDResult<()> {
-        let component_path = self.make_component_path(epath, component_filename);
+        let component_path = self.make_component_path(epath, component_filename)?;
         let mut file = create_file(&component_path)?;
         let serialized = bincode_serialize(&obj).expect("error shouldn't occur");
 
@@ -189,8 +255,10 @@ impl EntityData {
     }
 
     fn unset_component(&mut self, epath: &Path, component_filename: &'static str) -> EDResult<()> {
-        let component_path = self.make_component_path(epath, component_filename);
-        remove_file(&component_path)?;
+        let component_path = self.make_component_path(epath, component_filename)?;
+        if component_path.exists() {
+            remove_file(&component_path)?
+        }
         Ok(())
     }
 
@@ -200,7 +268,12 @@ impl EntityData {
         Ok(component_file_content)
     }
 
-    fn make_component_path(&self, epath: &Path, component: &str) -> PathBuf {
-        self.path.join(epath).join(component)
+    fn make_component_path(&self, epath: &Path, component: &str) -> EDResult<PathBuf> {
+        self.make_libentity_path(epath)
+            .map(|libentity_path| libentity_path.join(component))
+    }
+
+    fn make_libentity_path(&self, epath: &Path) -> EDResult<PathBuf> {
+        Ok(self.path.join(encode_path(&into_simple_form(epath)?)))
     }
 }

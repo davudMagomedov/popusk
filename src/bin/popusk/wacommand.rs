@@ -1,21 +1,14 @@
-use popusk::app::AppError;
-use popusk::core_commands::CoreError;
+// use popusk::entity_data::{EntityData, EDError};
+use popusk::app::{App, AppError};
 
-use std::io::Error as IoError;
+use std::path::PathBuf;
 
-use bincode::Error as BincodeError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum WAExexutionError {
     #[error("app error: {0}")]
     AppError(#[from] AppError),
-    #[error("execution error: {0}")]
-    CoreError(#[from] CoreError),
-    #[error("io error: {0}")]
-    IO(#[from] IoError),
-    #[error("serialization/deserialization error: {0}")]
-    SerDeser(#[from] BincodeError),
 }
 
 /// `WACommand` (`W`ithout `A`pplication) is command that doesn't need `App` for being executed.
@@ -33,22 +26,7 @@ impl InitWACMD {
 
 impl WACommand for InitWACMD {
     fn execute(&self) -> Result<(), WAExexutionError> {
-        popusk::core_commands::corecmd_init_current_directory()?;
-        Ok(())
-    }
-}
-
-pub struct UpdateWAPCMD;
-
-impl UpdateWAPCMD {
-    pub fn new() -> Self {
-        UpdateWAPCMD
-    }
-}
-
-impl WACommand for UpdateWAPCMD {
-    fn execute(&self) -> Result<(), WAExexutionError> {
-        popusk::core_commands::corecmd_update_current_directory()?;
+        App::create_new(&PathBuf::from("."))?;
         Ok(())
     }
 }

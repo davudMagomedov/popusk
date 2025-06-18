@@ -1,29 +1,8 @@
-use super::{PCommand, PExecutionError};
+use super::{PCommand, PEResult, PExecError};
 
 use popusk::app::App;
-use popusk::library::LibraryError;
-use popusk::storage::StorageError;
-use popusk::error_ext::IntoBoxExt;
-use popusk::types::{LibEntityMetaError, ID};
 
 use std::path::PathBuf;
-
-use thiserror::Error as ThisError;
-
-type CMDResult<T> = Result<T, CMDError>;
-
-#[derive(Debug, ThisError)]
-enum CMDError {
-    #[error("the path already exists")]
-    PathAlreadyExists,
-
-    #[error("library entity: {0}")]
-    LibEntity(#[from] LibEntityMetaError),
-    #[error("library: {0}")]
-    Library(#[from] LibraryError),
-    #[error("storage: {0}")]
-    Storage(#[from] StorageError)
-}
 
 /// UNSAFE COMMAND
 #[derive(Debug, Clone)]
@@ -36,38 +15,33 @@ impl AddPathPCMD {
         AddPathPCMD { path }
     }
 
-    fn validation_check(&self, app: &App) -> CMDResult<()> {
-        let storage_own = app.library().storage();
-        let storage = storage_own.borrow();
-
-        if storage.get_id(self.path.clone())?.is_some() {
-            return Err(CMDError::PathAlreadyExists);
+    fn validation_check(&self, app: &App) -> PEResult<()> {
+        if app.library().entity_data().borrow().exists(&self.path) {
+            return Err(PExecError::LibEntityAlreadyExists {
+                entitypath: self.path.clone(),
+            });
         }
 
         Ok(())
     }
 
-    fn execute_inner(&self, app: &mut App) -> CMDResult<ID> {
+    fn execute_inner(&self, app: &mut App) -> PEResult<()> {
         self.validation_check(app)?;
 
-        let id = app.library_mut()
-            .storage()
+        app.library_mut()
+            .entity_data()
             .borrow_mut()
-            .link_id_to_path(self.path.clone())?;
+            .touch(&self.path)?;
 
-        Ok(id)
+        Ok(())
     }
 }
 
 impl PCommand for AddPathPCMD {
-    fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let id = self.execute_inner(app).map_err(|e| e.into_box())?;
+    fn execute(&self, app: &mut App) -> Result<(), PExecError> {
+        self.execute_inner(app)?;
 
-        println!(
-            "The {} ID was associated with the path {}",
-            id,
-            self.path.to_string_lossy()
-        );
+        println!("The '{}' was added", self.path.to_string_lossy());
 
         Ok(())
     }

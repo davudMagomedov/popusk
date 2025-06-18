@@ -1,65 +1,54 @@
 use popusk::app::App;
-use popusk::types::{ID, LibEntityMetaError, LibEntityMut};
-use popusk::library::LibraryError;
-use popusk::error_ext::CommonizeResultExt;
+use popusk::types::LibEntityMut;
 
-use super::{PCommand, PExecutionError};
+use super::{PCommand, PEResult, PExecError};
 
-use thiserror::Error as ThisError;
-
-type CMDResult<T, E = CMDError> = Result<T, E>;
-
-#[derive(Debug, ThisError)]
-enum CMDError {
-    #[error("library entity with ID {id} wasn't found")]
-    LibEntityWasNotFound { id: ID },
-    #[error("there is no description")]
-    ThereIsNoDescription,
-
-    #[error("library entity: {0}")]
-    LibEntityMeta(#[from] LibEntityMetaError),
-    #[error("library: {0}")]
-    Library(#[from] LibraryError),
-}
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct DelDescriptionPCMD {
-    id: ID,
+    path: PathBuf,
 }
 
 impl DelDescriptionPCMD {
-    pub fn new(id: ID) -> Self {
-        DelDescriptionPCMD { id }
+    pub fn new(path: PathBuf) -> Self {
+        DelDescriptionPCMD { path }
     }
 
-    fn get_libentity(&self, app: &mut App) -> CMDResult<LibEntityMut> {
-        app.library_mut().get_libentity_mut_by_id(self.id)?
-            .ok_or_else(|| CMDError::LibEntityWasNotFound { id: self.id })
+    fn get_libentity(&self, app: &mut App) -> PEResult<LibEntityMut> {
+        app.library_mut()
+            .get_libentity_mut(self.path.clone())
+            .ok_or_else(|| PExecError::LibEntityWasNotFound {
+                entitypath: self.path.clone(),
+            })
     }
 
-    fn validation_check_middle(&self, libentity: &LibEntityMut) -> CMDResult<()> {
-        if libentity.description()?.is_some() {
-            return Err(CMDError::ThereIsNoDescription);
+    fn validation_check(&self, libentity: &LibEntityMut) -> PEResult<()> {
+        if libentity.description().is_none() {
+            return Err(PExecError::ComponentWasNotFound {
+                component: "description",
+                entitypath: self.path.clone(),
+            });
         }
 
         Ok(())
     }
 
-    fn execute_inner(&self, app: &mut App) -> CMDResult<()> {
+    fn execute_inner(&self, app: &mut App) -> PEResult<()> {
         let mut libentity = self.get_libentity(app)?;
 
-        self.validation_check_middle(&libentity)?;
+        self.validation_check(&libentity)?;
 
-        libentity.set_description(None)?;
-        libentity.dump_to_storage()?;
+        libentity.set_description(None);
+        libentity.dump_to_storage();
 
         Ok(())
     }
 }
 
 impl PCommand for DelDescriptionPCMD {
-    fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        self.execute_inner(app).commonize()?;
+    fn execute(&self, app: &mut App) -> Result<(), PExecError> {
+        self.execute_inner(app)?;
 
         println!("The description was deleted");
 

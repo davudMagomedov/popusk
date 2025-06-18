@@ -1,52 +1,40 @@
+use super::{PCommand, PEResult, PExecError};
+
 use popusk::app::App;
 use popusk::comps_appearance::progress_to_string;
-use popusk::error_ext::CommonizeResultExt;
-use popusk::types::{ID, Progress, LibEntityConst, LibEntityMetaError};
-use popusk::library::LibraryError;
+use popusk::types::{LibEntityConst, Progress};
 
-use super::{PCommand, PExecutionError};
-
-use thiserror::Error as ThisError;
-
-type CMDResult<T, E = CMDError> = Result<T, E>;
-
-#[derive(Debug, ThisError)]
-enum CMDError {
-    #[error("library entity with ID {id} wasn't found")]
-    LibEntityWasNotFound { id: ID },
-    #[error("progress was not found")]
-    ProgressWasNotFound,
-
-    #[error("library entity: {0}")]
-    LibEntityMeta(#[from] LibEntityMetaError),
-    #[error("library: {0}")]
-    Library(#[from] LibraryError)
-}
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct GetProgressPCMD {
-    id: ID,
+    path: PathBuf,
 }
 
 impl GetProgressPCMD {
-    pub fn new(id: ID) -> Self {
-        GetProgressPCMD { id }
+    pub fn new(path: PathBuf) -> Self {
+        GetProgressPCMD { path }
     }
 
-    fn get_libentity(&self, app: &App) -> CMDResult<LibEntityConst> {
+    fn get_libentity(&self, app: &App) -> PEResult<LibEntityConst> {
         app.library()
-            .get_libentity_by_id(self.id)?
-            .ok_or_else(|| CMDError::LibEntityWasNotFound { id: self.id })
+            .get_libentity(self.path.clone())
+            .ok_or_else(|| PExecError::LibEntityWasNotFound {
+                entitypath: self.path.clone(),
+            })
     }
 
-    fn get_progress(&self, app: &App) -> CMDResult<Progress> {
-        match self.get_libentity(app)?.progress()? {
+    fn get_progress(&self, app: &App) -> PEResult<Progress> {
+        match self.get_libentity(app)?.progress() {
             Some(progress) => Ok(progress),
-            None => Err(CMDError::ProgressWasNotFound),
+            None => Err(PExecError::ComponentWasNotFound {
+                component: "progress",
+                entitypath: self.path.clone(),
+            }),
         }
     }
 
-    fn execute_inner(&self, app: &mut App) -> CMDResult<Progress> {
+    fn execute_inner(&self, app: &mut App) -> PEResult<Progress> {
         self.get_progress(app)
     }
 
@@ -56,8 +44,8 @@ impl GetProgressPCMD {
 }
 
 impl PCommand for GetProgressPCMD {
-    fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let progress = self.execute_inner(app).commonize()?;
+    fn execute(&self, app: &mut App) -> Result<(), PExecError> {
+        let progress = self.execute_inner(app)?;
         self.print_info_msg(&progress);
 
         Ok(())

@@ -1,62 +1,51 @@
-use super::{PCommand, PExecutionError};
+use super::{PCommand, PEResult, PExecError};
 
 use popusk::app::App;
 use popusk::comps_appearance::progress_to_string;
-use popusk::types::{ID, Progress};
-use popusk::storage::StorageError;
-use popusk::error_ext::CommonizeResultExt;
+use popusk::types::{LibEntityMut, Progress};
 
-use thiserror::Error as ThisError;
-
-type CMDResult<T, E = CMDError> = Result<T, E>;
-
-#[derive(Debug, ThisError)]
-enum CMDError {
-    #[error("progress doesn't exist anyway")]
-    ProgressDoesNotExist,
-
-    #[error("storage: {0}")]
-    Storage(#[from] StorageError),
-}
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct DelProgressPCMD {
-    id: ID,
+    path: PathBuf,
 }
 
 impl DelProgressPCMD {
-    pub fn new(id: ID) -> Self {
-        DelProgressPCMD { id }
+    pub fn new(path: PathBuf) -> Self {
+        DelProgressPCMD { path }
     }
 
-    fn progress_exists(&self, app: &mut App) -> CMDResult<bool> {
-        Ok(app.library_mut().storage().borrow_mut().get_progress(self.id)?.is_some())
+    fn get_libentity(&self, app: &mut App) -> PEResult<LibEntityMut> {
+        app.library_mut()
+            .get_libentity_mut(self.path.clone())
+            .ok_or_else(|| PExecError::LibEntityWasNotFound {
+                entitypath: self.path.clone(),
+            })
     }
 
-    fn delete_progress(&self, app: &mut App) -> CMDResult<Progress> {
-        Ok(app.library_mut().storage().borrow_mut().unlink_progress_from_id(self.id)?)
-    }
-
-    fn execute_inner(&self, app: &mut App) -> CMDResult<Progress> {
-        if self.progress_exists(app)? {
-            Ok(self.delete_progress(app)?)
-        } else {
-            Err(CMDError::ProgressDoesNotExist)
+    fn execute_inner(&self, app: &mut App) -> PEResult<Progress> {
+        let libentity = self.get_libentity(app)?;
+        match libentity.progress() {
+            Some(progress) => Ok(progress),
+            None => Err(PExecError::ComponentWasNotFound {
+                component: "progress",
+                entitypath: self.path.clone(),
+            }),
         }
     }
 
     fn print_info_msg(&self, deleted_progress: Progress) {
         println!(
-            "Progress {} was detached from the {} id",
+            "The progress {} was deleted",
             progress_to_string(&deleted_progress),
-            self.id
         );
     }
 }
 
 impl PCommand for DelProgressPCMD {
-    fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        let deleted_progress = self.execute_inner(app).commonize()?;
+    fn execute(&self, app: &mut App) -> Result<(), PExecError> {
+        let deleted_progress = self.execute_inner(app)?;
         self.print_info_msg(deleted_progress);
 
         Ok(())

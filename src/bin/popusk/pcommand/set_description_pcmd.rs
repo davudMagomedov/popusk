@@ -1,18 +1,19 @@
 use popusk::app::App;
 use popusk::types::LibEntityMut;
 
-use super::{PCommand, PEResult, PExecError};
+use super::{PCommand, PExecError, PEResult};
 
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
-pub struct DelLibentityPCMD {
+pub struct SetDescriptionPCMD {
     path: PathBuf,
+    description: String,
 }
 
-impl DelLibentityPCMD {
-    pub fn new(path: PathBuf) -> Self {
-        DelLibentityPCMD { path }
+impl SetDescriptionPCMD {
+    pub fn new(path: PathBuf, description: String) -> Self {
+        SetDescriptionPCMD { path, description }
     }
 
     fn get_libentity(&self, app: &mut App) -> PEResult<LibEntityMut> {
@@ -24,18 +25,19 @@ impl DelLibentityPCMD {
     }
 
     fn execute_inner(&self, app: &mut App) -> PEResult<()> {
-        self.get_libentity(app)?.delete();
+        let mut libentity = self.get_libentity(app)?;
+        libentity.set_description(Some(self.description.clone()));
+        libentity.dump_to_storage();
 
         Ok(())
     }
 }
 
-impl PCommand for DelLibentityPCMD {
+impl PCommand for SetDescriptionPCMD {
     fn execute(&self, app: &mut App) -> PEResult<()> {
         self.execute_inner(app)?;
-
         println!(
-            "Library entity '{}' was deleted",
+            "The description was added in libreary entity '{}'",
             self.path.to_string_lossy()
         );
 

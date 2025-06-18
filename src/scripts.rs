@@ -1,5 +1,5 @@
 use crate::global_conf_directory::GlobalConfError;
-use crate::types::{LibEntity, LibEntityData, Progress, StyledText};
+use crate::types::{LibEntity, Progress, StyledText};
 
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
 use std::path::{Path, PathBuf};
@@ -16,7 +16,6 @@ const LOOK_SCRIPT_FUNCTION_NAME: &str = "look_output";
 const OPEN_SCRIPT_FUNCTION_NAME: &str = "open_libentity";
 const LIST_NARROW_SCRIPT_FUNCTION_NAME: &str = "list_output_narrow";
 const LIST_WIDE_SCRIPT_FUNCTION_NAME: &str = "list_output_wide";
-const IS_DOCUMENT_SCRIPT_FUNCTION_NAME: &str = "is_document";
 const ADD_LIBRARY_ENTITY_FUNCTION_NAME: &str = "add_library_entity";
 
 pub type ScriptsResult<T, E = ScriptsError> = Result<T, E>;
@@ -98,11 +97,7 @@ pub struct Scripts {
 }
 
 impl Scripts {
-    pub fn look_output(
-        &self,
-        libentity: LibEntity,
-        context: Context,
-    ) -> ScriptsResult<StyledText> {
+    pub fn look_output(&self, libentity: LibEntity, context: Context) -> ScriptsResult<StyledText> {
         let look_output_func = self
             .lua
             .globals()
@@ -170,29 +165,17 @@ impl Scripts {
         }
     }
 
-    pub fn add_library_entity(&self, path: PathBuf) -> ScriptsResult<LibEntityData> {
-        let add_libentity_func = self.
-            lua
+    pub fn add_library_entity(&self, path: PathBuf) -> ScriptsResult<LibEntity> {
+        let add_libentity_func = self
+            .lua
             .globals()
             .get::<LuaFunction>(ADD_LIBRARY_ENTITY_FUNCTION_NAME)?;
 
-        match add_libentity_func.call::<LibEntityData>(path.to_string_lossy()) {
-            Ok(libentity_data) => Ok(libentity_data),
-            Err(LuaError::RuntimeError(runtime_err_msg)) => {
-                return Err(ScriptsError::LuaRuntimeError(runtime_err_msg))
+        match add_libentity_func.call::<LibEntity>(path.to_string_lossy()) {
+            Ok(mut libentity_data) => {
+                libentity_data.path = path;
+                Ok(libentity_data)
             }
-            Err(lua_error) => return Err(lua_error.into()),
-        }
-    }
-
-    pub fn is_document(&self, extension: String) -> Result<bool, ScriptsError> {
-        let is_document_func = self
-            .lua
-            .globals()
-            .get::<LuaFunction>(IS_DOCUMENT_SCRIPT_FUNCTION_NAME)?;
-
-        match is_document_func.call::<bool>(extension) {
-            Ok(is_document) => Ok(is_document),
             Err(LuaError::RuntimeError(runtime_err_msg)) => {
                 return Err(ScriptsError::LuaRuntimeError(runtime_err_msg))
             }
@@ -224,7 +207,9 @@ pub fn open_scripts_from_file(scriptfile: &Path) -> Result<Scripts, ScriptsError
         Err(io_error) => return Err(ScriptsError::IOErrorWithScriptsFile(io_error)),
     };
     let lua_content_preamble = scripts_preamble(
-        scriptfile.parent().expect("TODO: what if scripfile is in root directory")
+        scriptfile
+            .parent()
+            .expect("TODO: what if scripfile is in root directory"),
     );
     let lua_content = lua_content_preamble + &lua_main_content;
 

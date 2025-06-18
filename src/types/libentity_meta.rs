@@ -1,35 +1,24 @@
-use crate::storage::{Storage, StorageError};
-use crate::types::{EntityType, Progress, FreeData, ID, Tag, EntityBase,
-                   LibEntity, LibEntityData};
-use crate::comps_interaction::libentity_has_progress;
+use crate::entity_data::{EDError, EntityData};
+use crate::error_ext::ResultExt;
+use crate::types::{EntityBase, EntityType, FreeData, LibEntity, Progress, Tag};
 
 use std::cell::RefCell;
-use std::rc::Rc;
-use std::path::PathBuf;
 use std::ops::{Deref, DerefMut};
+use std::path::PathBuf;
+use std::rc::Rc;
 
-use thiserror::Error as ThisError;
+type LEMResult<T> = Result<T, LEMError>;
 
-pub type LibEntityResult<T> = Result<T, LibEntityMetaError>;
-
-#[derive(Debug, ThisError)]
-pub enum LibEntityMetaError {
-    #[error("there's no library entity with path '{path}'")]
-    CouldNotFindLibEntityWithPath { path: PathBuf },
-    #[error("there's no library entity with id '{id}'")]
-    CouldNotFindLibEntityWithID { id: ID },
-    #[error("couldn't find entity base for ID {id}")]
-    CouldNotFindEntityBaseForID { id: ID },
-    #[error("there was an attempt to delete progress of document")]
-    AttemptToDeleteProgressOfDoc, 
-
-    #[error("storage error: {0}")]
-    Storage(#[from] StorageError),
+#[derive(Debug)]
+pub enum LEMError {
+    CouldNotFindLibEntity,
 }
 
 #[derive(Debug)]
 struct LibEntityDataCached {
-    ebase: Option<EntityBase>,
+    name: Option<String>,
+    etype: Option<EntityType>,
+    tags: Option<Vec<Tag>>,
     progress: Option<Option<Progress>>,
     description: Option<Option<String>>,
     freedata: Option<Option<FreeData>>,
@@ -38,7 +27,9 @@ struct LibEntityDataCached {
 impl LibEntityDataCached {
     fn empty() -> Self {
         LibEntityDataCached {
-            ebase: None,
+            name: None,
+            etype: None,
+            tags: None,
             progress: None,
             description: None,
             freedata: None,
@@ -46,308 +37,275 @@ impl LibEntityDataCached {
     }
 }
 
+/// Invariant: `entity_data.borrow().exists(path)` is always true. It's not necessary all
+/// elements to be in the entity data directory.
 pub struct LibEntityMeta {
-    /* Invariants:
-     * 1. ID definetly exists in the storage.
-     * 2. If the path is `Some(PathBuf)` then `path` is linked to the `id`
-     *    and, therefore, exists in the storage. */
-
-    storage: Rc<RefCell<Storage>>,
-    path: Option<PathBuf>,
-    id: ID,
+    entity_data: Rc<RefCell<EntityData>>,
+    path: PathBuf,
     data_cached: RefCell<LibEntityDataCached>,
 }
 
 impl LibEntityMeta {
-    pub fn new_with_path(storage: Rc<RefCell<Storage>>, path: PathBuf)
-    -> LibEntityResult<Self> {
-        let id = match storage.borrow().get_id(path.clone())? {
-            Some(id) => id,
-            None => return Err(LibEntityMetaError::CouldNotFindLibEntityWithPath { path })
-        };
-
-        Ok(LibEntityMeta {
-            storage, id,
-            path: Some(path),
-            data_cached: RefCell::new(LibEntityDataCached::empty()),
-        })
-    }
-
-    pub fn new_with_id(storage: Rc<RefCell<Storage>>, id: ID) -> LibEntityResult<Self> {
-        if !storage.borrow().id_exists(id)? {
-            return Err(LibEntityMetaError::CouldNotFindLibEntityWithID { id });
+    /// ## Error
+    /// Returns LEMError::CouldNotFindLibEntity if library entity was not found.
+    pub fn new(entity_data: Rc<RefCell<EntityData>>, path: PathBuf) -> LEMResult<Self> {
+        if !entity_data.borrow().exists(&path) {
+            return Err(LEMError::CouldNotFindLibEntity);
         }
 
         Ok(LibEntityMeta {
-            storage, id,
-            path: None,
+            entity_data,
+            path,
             data_cached: RefCell::new(LibEntityDataCached::empty()),
         })
     }
 
-    /// SAFETY: make sure that given ID is linked with given path.
-    pub unsafe fn new_with_path_id_unchecked(
-        storage: Rc<RefCell<Storage>>,
-        id: ID,
-        path: PathBuf
-    ) -> LibEntityResult<Self> {
-        Ok(LibEntityMeta {
-            storage, id, path: Some(path),
+    pub unsafe fn new_unchecked(entity_data: Rc<RefCell<EntityData>>, path: PathBuf) -> Self {
+        LibEntityMeta {
+            entity_data,
+            path,
             data_cached: RefCell::new(LibEntityDataCached::empty()),
-        })
-    }
-
-    pub fn id(&self) -> ID { self.id }
-
-    pub fn path(&self) -> Option<&PathBuf> { self.path.as_ref() }
-
-    pub fn ebase(&self) -> Result<EntityBase, LibEntityMetaError> {
-        if self.ebase_cached() {
-            Ok(self.ebase_raw().unwrap())
-        } else {
-            self.cache_ebase(self.read_ebase_from_storage()?);
-            Ok(self.ebase_raw().unwrap())
         }
     }
 
-    pub fn name(&self) -> Result<String, LibEntityMetaError> {
+    /// If library entity with `libentity.path` already exists, then all the other fields will be
+    /// replaced with the ones in `libentity` field.
+    pub fn create_from_static_libentity(
+        entity_data: Rc<RefCell<EntityData>>,
+        libentity: LibEntity,
+    ) -> Self {
+        let borrowed_entity_data = entity_data.borrow_mut();
+        if !borrowed_entity_data.exists(&libentity.path) {
+            borrowed_entity_data
+                .touch(&libentity.path)
+                .unwrap_or_explosion_with(|| {
+                    format!(
+                        "creating library entity '{}'",
+                        libentity.path.to_string_lossy()
+                    )
+                });
+        }
+        drop(borrowed_entity_data);
+
+        // SAFETY: entity data for `path` was created earlier.
+        let mut meta = unsafe { LibEntityMeta::new_unchecked(entity_data, libentity.path) };
+        meta.set_name(libentity.name);
+        meta.set_tags(libentity.tags);
+        meta.set_etype(libentity.etype);
+        meta.set_progress(libentity.progress);
+        meta.set_description(libentity.description);
+        meta.set_freedata(libentity.freedata);
+
+        meta
+    }
+
+    pub fn produce_libentity(&self) -> LibEntity {
+        let path = self.path.clone();
+        let name = self.name();
+        let etype = self.etype();
+        let tags = self.tags();
+        let progress = self.progress();
+        let description = self.description();
+        let freedata = self.freedata();
+        LibEntity {
+            path,
+            name,
+            etype,
+            tags,
+            progress,
+            description,
+            freedata,
+        }
+    }
+
+    pub fn path(&self) -> &PathBuf {
+        &self.path
+    }
+
+    pub fn name(&self) -> String {
         if self.name_cached() {
-            Ok(self.name_raw().unwrap())
+            // SAFETY: cached.
+            unsafe { self.name_raw().unwrap_unchecked() }
         } else {
-            self.cache_name_with_ebase(
-                self.read_ebase_from_storage()?,
-                self.read_name_from_storage()?
-            );
-            Ok(self.name_raw().unwrap())
+            self.cache_ebase(self.read_ebase_from_storage());
+            // SAFETY: was cached one line above.
+            unsafe { self.name_raw().unwrap_unchecked() }
         }
     }
 
-    pub fn etype(&self) -> Result<EntityType, LibEntityMetaError> {
+    pub fn etype(&self) -> EntityType {
         if self.etype_cached() {
-            Ok(self.etype_raw().unwrap())
+            // SAFETY: cached.
+            unsafe { self.etype_raw().unwrap_unchecked() }
         } else {
-            self.cache_etype_with_ebase(
-                self.ebase()?,
-                self.read_etype_from_storage()?
-            );
-            Ok(self.etype_raw().unwrap())
+            self.cache_ebase(self.read_ebase_from_storage());
+            // SAFETY: was cached one line above.
+            unsafe { self.etype_raw().unwrap_unchecked() }
         }
     }
 
-    pub fn tags(&self) -> Result<Vec<Tag>, LibEntityMetaError> {
+    pub fn tags(&self) -> Vec<Tag> {
         if self.tags_cached() {
-            Ok(self.tags_raw().unwrap())
+            // SAFETY: cached.
+            unsafe { self.tags_raw().unwrap_unchecked() }
         } else {
-            self.cache_tags_with_ebase(
-                self.ebase()?,
-                self.read_tags_from_storage()?,
-            );
-            Ok(self.tags_raw().unwrap())
+            self.cache_ebase(self.read_ebase_from_storage());
+            // SAFETY: was cached one line above.
+            unsafe { self.tags_raw().unwrap_unchecked() }
         }
     }
 
-    pub fn progress(&self) -> Result<Option<Progress>, LibEntityMetaError> {
+    pub fn progress(&self) -> Option<Progress> {
         if self.progress_cached() {
-            Ok(self.progress_raw().unwrap())
+            // SAFETY: cached.
+            unsafe { self.progress_raw().unwrap_unchecked() }
         } else {
-            self.cache_progress(self.read_progress_from_storage()?);
-            Ok(self.progress_raw().unwrap())
+            self.cache_progress(self.read_progress_from_storage());
+            // SAFETY: was cached one line above.
+            unsafe { self.progress_raw().unwrap_unchecked() }
         }
     }
 
-    pub fn description(&self) -> Result<Option<String>, LibEntityMetaError> {
+    pub fn description(&self) -> Option<String> {
         if self.description_cached() {
-            Ok(self.description_raw().unwrap())
+            // SAFETY: cached.
+            unsafe { self.description_raw().unwrap_unchecked() }
         } else {
-            self.cache_description(self.read_description_from_storage()?);
-            Ok(self.description_raw().unwrap())
+            self.cache_description(self.read_description_from_storage());
+            // SAFETY: was cached one line above.
+            unsafe { self.description_raw().unwrap_unchecked() }
         }
     }
 
-    pub fn freedata(&self) -> Result<Option<FreeData>, LibEntityMetaError> {
+    pub fn freedata(&self) -> Option<FreeData> {
         if self.freedata_cached() {
-            Ok(self.freedata_raw().unwrap())
+            // SAFETY: cached.
+            unsafe { self.freedata_raw().unwrap_unchecked() }
         } else {
-            self.cache_freedata(self.read_freedata_from_storage()?);
-            Ok(self.freedata_raw().unwrap())
+            self.cache_freedata(self.read_freedata_from_storage());
+            // SAFETY: was cached one line above.
+            unsafe { self.freedata_raw().unwrap_unchecked() }
         }
     }
 
-    pub fn set_ebase(&mut self, ebase: EntityBase) -> Result<(), LibEntityMetaError> {
-        debug_assert_eq!(ebase.id(), self.id);
-
-        self.data_cached.borrow_mut().ebase.replace(ebase);
-        Ok(())
+    pub fn set_name(&mut self, name: String) {
+        let _ = self.data_cached.borrow_mut().name.insert(name);
     }
 
-    pub fn set_name(&mut self, name: String) -> Result<(), LibEntityMetaError> {
-        let mut ebase = self.ebase()?;
-        *ebase.name_mut() = name;
-        self.set_ebase(ebase)?;
-
-        Ok(())
+    pub fn set_etype(&mut self, etype: EntityType) {
+        let _ = self.data_cached.borrow_mut().etype.insert(etype);
     }
 
-    pub fn set_etype(&mut self, etype: EntityType) -> Result<(), LibEntityMetaError> {
-        let mut ebase = self.ebase()?;
-        ebase.set_etype(etype);
-        self.set_ebase(ebase)?;
-
-        Ok(())
+    pub fn set_tags(&mut self, tags: Vec<Tag>) {
+        let _ = self.data_cached.borrow_mut().tags.insert(tags);
     }
 
-    pub fn set_tags(&mut self, tags: Vec<Tag>) -> Result<(), LibEntityMetaError> {
-        let mut ebase = self.ebase()?;
-        *ebase.tags_mut() = tags;
-        self.set_ebase(ebase)?;
-
-        Ok(())
+    /// Keep in mind that progress cannot be in library entity with entity type != Document.
+    pub fn set_progress(&mut self, progress: Option<Progress>) {
+        let _ = self.data_cached.borrow_mut().progress.insert(progress);
     }
 
-    pub fn set_progress(&mut self, progress: Option<Progress>)
-    -> Result<(), LibEntityMetaError> {
-        if libentity_has_progress(self.etype()?) && progress.is_none() {
-            return Err(LibEntityMetaError::AttemptToDeleteProgressOfDoc)
+    pub fn set_description(&mut self, description: Option<String>) {
+        let _ = self
+            .data_cached
+            .borrow_mut()
+            .description
+            .insert(description);
+    }
+
+    pub fn set_freedata(&mut self, freedata: Option<FreeData>) {
+        let _ = self.data_cached.borrow_mut().freedata.insert(freedata);
+    }
+
+    pub fn dump_to_storage(&self) {
+        self.dump_ebase_to_storage().unwrap_or_explosion_with(|| {
+            format!("dumping entity base for '{}'", self.path.to_string_lossy())
+        });
+        self.dump_progress_to_storage()
+            .unwrap_or_explosion_with(|| {
+                format!("dumping progress for '{}'", self.path.to_string_lossy())
+            });
+        self.dump_description_to_storage()
+            .unwrap_or_explosion_with(|| {
+                format!("dumping description for '{}'", self.path.to_string_lossy())
+            });
+        self.dump_freedata_to_storage()
+            .unwrap_or_explosion_with(|| {
+                format!("dumping freedata for '{}'", self.path.to_string_lossy())
+            });
+    }
+
+    fn delete(self) {
+        self.entity_data
+            .borrow_mut()
+            .delete(&self.path)
+            .unwrap_or_explosion_with(|| {
+                format!("deleting library entity '{}'", self.path.to_string_lossy())
+            });
+    }
+
+    pub fn load(&self) {
+        self.cache_ebase(self.read_ebase_from_storage());
+        self.cache_progress(self.read_progress_from_storage());
+        self.cache_description(self.read_description_from_storage());
+        self.cache_freedata(self.read_freedata_from_storage());
+    }
+
+    fn dump_ebase_to_storage(&self) -> Result<(), EDError> {
+        let mut borrowed_entitydata = self.entity_data.borrow_mut();
+        if let Some(ebase) = self.ebase_raw() {
+            borrowed_entitydata.set_ebase(&self.path, ebase)
+        } else {
+            Ok(())
         }
-
-        self.data_cached.borrow_mut().progress.replace(progress);
-        Ok(())
     }
 
-    pub fn set_description(&mut self, description: Option<String>)
-    -> Result<(), LibEntityMetaError> {
-        self.data_cached.borrow_mut().description.replace(description);
-        Ok(())
-    }
-
-    pub fn set_freedata(&mut self, freedata: Option<FreeData>)
-    -> Result<(), LibEntityMetaError> {
-        self.data_cached.borrow_mut().freedata.replace(freedata);
-        Ok(())
-    }
-
-    pub fn dump_to_storage(&self) -> Result<(), LibEntityMetaError> {
-        self.dump_ebase_to_storage()?;
-        self.dump_progress_to_storage()?;
-        self.dump_description_to_storage()?;
-        self.dump_freedata_to_storage()?;
-
-        Ok(())
-    }
-
-    pub fn into_canonical_libentity(&self) -> Result<LibEntity, LibEntityMetaError> {
-        debug_assert!(self.path.is_some());
-
-        self.load()?;
-
-        let libentity_data = LibEntityData {
-            path: self.path().unwrap().clone(),
-            name: self.name_raw().unwrap(),
-            etype: self.etype_raw().unwrap(),
-            tags: self.tags_raw().unwrap(),
-            progress: self.progress_raw().unwrap(),
-            description: self.description_raw().unwrap(),
-            freedata: self.freedata_raw().unwrap(),
-        };
-
-        Ok(LibEntity::from_id_data(self.id, libentity_data))
-    }
-
-    fn delete(self) -> Result<(), LibEntityMetaError> {
-        if self.path.is_none() {
-            panic!("there's no way to delete libentity without known path");
+    fn dump_progress_to_storage(&self) -> Result<(), EDError> {
+        let mut borrowed_entitydata = self.entity_data.borrow_mut();
+        match self.progress_raw() {
+            Some(Some(progress)) => borrowed_entitydata.set_progress(&self.path, progress),
+            Some(None) => borrowed_entitydata.unset_progress(&self.path),
+            _ => Ok(()),
         }
-
-        let mut storage = self.storage.borrow_mut();
-
-        storage.unlink_id_from_path(self.path.unwrap())?;
-        let ebase = storage.unlink_entitybase_from_id(self.id)?;
-        if libentity_has_progress(ebase.etype()) {
-            storage.unlink_progress_from_id(self.id)?;
-        }
-        if storage.get_description(self.id)?.is_some() {
-            storage.unlink_description_from_id(self.id)?;
-        }
-        if storage.get_freedata(self.id)?.is_some() {
-            storage.unlink_freedata_to_id(self.id)?;
-        }
-
-        Ok(())
     }
 
-    fn load(&self) -> Result<(), LibEntityMetaError> {
-        self.cache_ebase(self.read_ebase_from_storage()?);
-        self.cache_progress(self.read_progress_from_storage()?);
-        self.cache_description(self.read_description_from_storage()?);
-        self.cache_freedata(self.read_freedata_from_storage()?);
-
-        Ok(())
-    }
-
-    fn dump_ebase_to_storage(&self) -> Result<(), LibEntityMetaError> {
-        let ebase = self.ebase()?;
-        self.storage.borrow_mut().update_entitybase(self.id, ebase)?;
-
-        Ok(())
-    }
-
-    fn dump_progress_to_storage(&self) -> Result<(), LibEntityMetaError> {
-        if let Some(progress) = self.progress()? {
-            if self.storage.borrow().get_progress(self.id)?.is_some() {
-                self.storage.borrow_mut().update_progress(self.id, progress)?;
-            } else {
-                self.storage.borrow_mut().link_progress_to_id(self.id, progress)?;
-            }
-        } else if self.storage.borrow().get_progress(self.id)?.is_some() {
-            self.storage.borrow_mut().unlink_progress_from_id(self.id)?;
+    fn dump_description_to_storage(&self) -> Result<(), EDError> {
+        let mut borrowed_entitydata = self.entity_data.borrow_mut();
+        match self.description_raw() {
+            Some(Some(description)) => borrowed_entitydata.set_description(&self.path, description),
+            Some(None) => borrowed_entitydata.unset_description(&self.path),
+            _ => Ok(()),
         }
-
-        Ok(())
     }
 
-    fn dump_description_to_storage(&self) -> Result<(), LibEntityMetaError> {
-        if let Some(description) = self.description()? {
-            if self.storage.borrow().get_description(self.id)?.is_some() {
-                self.storage.borrow_mut().update_description(self.id, description)?;
-            } else {
-                self.storage.borrow_mut().link_description_to_id(self.id, description)?;
-            }
-        } else if self.storage.borrow().get_description(self.id)?.is_some() {
-            self.storage.borrow_mut().unlink_description_from_id(self.id)?;
+    fn dump_freedata_to_storage(&self) -> Result<(), EDError> {
+        let mut borrowed_entitydata = self.entity_data.borrow_mut();
+        match self.freedata_raw() {
+            Some(Some(freedata)) => borrowed_entitydata.set_freedata(&self.path, freedata),
+            Some(None) => borrowed_entitydata.unset_freedata(&self.path),
+            _ => Ok(()),
         }
-
-        Ok(())
     }
-
-    fn dump_freedata_to_storage(&self) -> Result<(), LibEntityMetaError> {
-        if let Some(freedata) = self.freedata()? {
-            if self.storage.borrow().get_freedata(self.id)?.is_some() {
-                self.storage.borrow_mut().update_freedata(self.id, freedata)?;
-            } else {
-                self.storage.borrow_mut().link_freedata_to_id(self.id, freedata)?;
-            }
-        } else if self.storage.borrow().get_freedata(self.id)?.is_some() {
-            self.storage.borrow_mut().unlink_freedata_to_id(self.id)?;
-        }
-
-        Ok(())
-    }
-
 
     fn ebase_raw(&self) -> Option<EntityBase> {
-        self.data_cached.borrow().ebase.clone()
+        let datacached_borrowed = self.data_cached.borrow();
+        Some(EntityBase {
+            name: datacached_borrowed.name.clone()?,
+            etype: datacached_borrowed.etype.clone()?,
+            tags: datacached_borrowed.tags.clone()?,
+        })
     }
 
     fn name_raw(&self) -> Option<String> {
-        self.data_cached.borrow().ebase.clone().map(|ebase| ebase.extract_name())
+        self.data_cached.borrow().name.clone()
     }
 
     fn etype_raw(&self) -> Option<EntityType> {
-        self.data_cached.borrow().ebase.clone().map(|ebase| ebase.etype())
+        self.data_cached.borrow().etype.clone()
     }
 
     fn tags_raw(&self) -> Option<Vec<Tag>> {
-        self.data_cached.borrow().ebase.clone().map(|ebase| ebase.extract_tags())
+        self.data_cached.borrow().tags.clone()
     }
 
     fn progress_raw(&self) -> Option<Option<Progress>> {
@@ -362,13 +320,17 @@ impl LibEntityMeta {
         self.data_cached.borrow().freedata.clone()
     }
 
-    fn ebase_cached(&self) -> bool { self.data_cached.borrow().ebase.is_some() }
+    fn name_cached(&self) -> bool {
+        self.data_cached.borrow().name.is_some()
+    }
 
-    fn name_cached(&self) -> bool { self.ebase_cached() }
+    fn etype_cached(&self) -> bool {
+        self.data_cached.borrow().etype.is_some()
+    }
 
-    fn etype_cached(&self) -> bool { self.ebase_cached() }
-
-    fn tags_cached(&self) -> bool { self.ebase_cached() }
+    fn tags_cached(&self) -> bool {
+        self.data_cached.borrow().tags.is_some()
+    }
 
     fn progress_cached(&self) -> bool {
         self.data_cached.borrow().progress.is_some()
@@ -382,78 +344,80 @@ impl LibEntityMeta {
         self.data_cached.borrow().freedata.is_some()
     }
 
-    fn cache_ebase(&self, ebase: EntityBase) -> Option<EntityBase> {
-        self.data_cached.borrow_mut().ebase.replace(ebase)
+    fn cache_ebase(&self, ebase: EntityBase) {
+        let _ = self.data_cached.borrow_mut().name.insert(ebase.name);
+        let _ = self.data_cached.borrow_mut().etype.insert(ebase.etype);
+        let _ = self.data_cached.borrow_mut().tags.insert(ebase.tags);
     }
 
-    fn cache_name_with_ebase(&self,
-        mut ebase: EntityBase,
-        name: String)
-    -> Option<String> {
-        *ebase.name_mut() = name;
-        self.cache_ebase(ebase).map(|old_ebase| old_ebase.extract_name())
+    fn cache_progress(&self, progress: Option<Progress>) {
+        let _ = self.data_cached.borrow_mut().progress.insert(progress);
     }
 
-    fn cache_etype_with_ebase(&self,
-        mut ebase: EntityBase,
-        etype: EntityType)
-    -> Option<EntityType> {
-        ebase.set_etype(etype);
-        self.cache_ebase(ebase).map(|old_ebase| old_ebase.etype())
+    fn cache_description(&self, description: Option<String>) {
+        let _ = self
+            .data_cached
+            .borrow_mut()
+            .description
+            .insert(description);
     }
 
-    fn cache_tags_with_ebase(&self,
-        mut ebase: EntityBase,
-        tags: Vec<Tag>
-    ) -> Option<Vec<Tag>> {
-        *ebase.tags_mut() = tags;
-        self.cache_ebase(ebase).map(|old_ebase| old_ebase.extract_tags())
+    fn cache_freedata(&self, freedata: Option<FreeData>) {
+        let _ = self.data_cached.borrow_mut().freedata.insert(freedata);
     }
 
-    fn cache_progress(&self, progress: Option<Progress>) -> Option<Option<Progress>> {
-        self.data_cached.borrow_mut().progress.replace(progress)
+    fn read_ebase_from_storage(&self) -> EntityBase {
+        self.entity_data
+            .borrow()
+            .get_ebase(&self.path)
+            .unwrap_or_explosion_with(|| {
+                format!("reading entity base of '{}'", self.path.to_string_lossy())
+            })
     }
 
-    fn cache_description(&self, description: Option<String>) -> Option<Option<String>> {
-        self.data_cached.borrow_mut().description.replace(description)
+    fn read_progress_from_storage(&self) -> Option<Progress> {
+        let borrowed_storage = self.entity_data.borrow();
+        if borrowed_storage.progress_exists(&self.path) {
+            Some(
+                borrowed_storage
+                    .get_progress(&self.path)
+                    .unwrap_or_explosion_with(|| {
+                        format!("reading progress of '{}'", self.path.to_string_lossy())
+                    }),
+            )
+        } else {
+            None
+        }
     }
 
-    fn cache_freedata(&self, freedata: Option<FreeData>) -> Option<Option<FreeData>> {
-        self.data_cached.borrow_mut().freedata.replace(freedata)
+    fn read_description_from_storage(&self) -> Option<String> {
+        let borrowed_storage = self.entity_data.borrow();
+        if borrowed_storage.description_exists(&self.path) {
+            Some(
+                borrowed_storage
+                    .get_description(&self.path)
+                    .unwrap_or_explosion_with(|| {
+                        format!("reading description of '{}'", self.path.to_string_lossy())
+                    }),
+            )
+        } else {
+            None
+        }
     }
 
-    fn read_ebase_from_storage(&self) -> Result<EntityBase, LibEntityMetaError> {
-        Ok(
-            self.storage.borrow()
-                .get_entitybase(self.id)?
-                .ok_or_else(|| LibEntityMetaError::CouldNotFindEntityBaseForID {
-                    id: self.id
-                })?
-        )
-    }
-
-    fn read_name_from_storage(&self) -> Result<String, LibEntityMetaError> {
-        Ok(self.read_ebase_from_storage()?.destruct().1) // get `name` field
-    }
-
-    fn read_etype_from_storage(&self) -> Result<EntityType, LibEntityMetaError> {
-        Ok(self.read_ebase_from_storage()?.destruct().2) // get `etype` field
-    }
-    
-    fn read_tags_from_storage(&self) -> Result<Vec<Tag>, LibEntityMetaError> {
-        Ok(self.read_ebase_from_storage()?.destruct().3) // get `tags` field
-    }
-
-    fn read_progress_from_storage(&self) -> Result<Option<Progress>, LibEntityMetaError> {
-        Ok(self.storage.borrow().get_progress(self.id)?)
-    }
-
-    fn read_description_from_storage(&self) -> Result<Option<String>, LibEntityMetaError> {
-        Ok(self.storage.borrow().get_description(self.id)?)
-    }
-
-    fn read_freedata_from_storage(&self) -> Result<Option<FreeData>, LibEntityMetaError> {
-        Ok(self.storage.borrow().get_freedata(self.id)?)
+    fn read_freedata_from_storage(&self) -> Option<FreeData> {
+        let borrowed_storage = self.entity_data.borrow();
+        if borrowed_storage.freedata_exists(&self.path) {
+            Some(
+                borrowed_storage
+                    .get_freedata(&self.path)
+                    .unwrap_or_explosion_with(|| {
+                        format!("reading freedata of '{}'", self.path.to_string_lossy())
+                    }),
+            )
+        } else {
+            None
+        }
     }
 }
 
@@ -462,28 +426,12 @@ pub struct LibEntityMut {
 }
 
 impl LibEntityMut {
-    pub fn new_with_path(storage: Rc<RefCell<Storage>>, path: PathBuf)
-    -> LibEntityResult<Self> {
-        LibEntityMeta::new_with_path(storage, path)
-            .map(|meta| LibEntityMut { meta })
+    pub fn new(entity_data: Rc<RefCell<EntityData>>, path: PathBuf) -> LEMResult<Self> {
+        LibEntityMeta::new(entity_data, path).map(|meta| LibEntityMut { meta })
     }
 
-    pub fn new_with_id(storage: Rc<RefCell<Storage>>, id: ID) -> LibEntityResult<Self> {
-        LibEntityMeta::new_with_id(storage, id)
-            .map(|meta| LibEntityMut { meta })
-    }
-
-    pub unsafe fn new_with_path_id_unchecked(
-        storage: Rc<RefCell<Storage>>,
-        id: ID,
-        path: PathBuf
-    ) -> LibEntityResult<Self> {
-        LibEntityMeta::new_with_path_id_unchecked(storage, id, path)
-            .map(|meta| LibEntityMut { meta })
-    }
-
-    pub fn delete(self) -> LibEntityResult<()> {
-        self.meta.delete()
+    pub fn delete(self) {
+        self.meta.delete();
     }
 }
 
@@ -506,24 +454,8 @@ pub struct LibEntityConst {
 }
 
 impl LibEntityConst {
-    pub fn new_with_path(storage: Rc<RefCell<Storage>>, path: PathBuf)
-    -> LibEntityResult<Self> {
-        LibEntityMeta::new_with_path(storage, path)
-            .map(|meta| LibEntityConst { meta })
-    }
-
-    pub fn new_with_id(storage: Rc<RefCell<Storage>>, id: ID) -> LibEntityResult<Self> {
-        LibEntityMeta::new_with_id(storage, id)
-            .map(|meta| LibEntityConst { meta })
-    }
-
-    pub unsafe fn new_with_path_id_unchecked(
-        storage: Rc<RefCell<Storage>>,
-        id: ID,
-        path: PathBuf
-    ) -> LibEntityResult<Self> {
-        LibEntityMeta::new_with_path_id_unchecked(storage, id, path)
-            .map(|meta| LibEntityConst { meta })
+    pub fn new(entity_data: Rc<RefCell<EntityData>>, path: PathBuf) -> LEMResult<Self> {
+        LibEntityMeta::new(entity_data, path).map(|meta| LibEntityConst { meta })
     }
 }
 
@@ -532,5 +464,16 @@ impl Deref for LibEntityConst {
 
     fn deref(&self) -> &Self::Target {
         &self.meta
+    }
+}
+
+/// If library entity with `libentity.path` already exists, then all the other fields will be
+/// replaced with the ones in `libentity` field.
+pub fn create_from_static_libentity(
+    entity_data: Rc<RefCell<EntityData>>,
+    static_libentity: LibEntity,
+) -> LibEntityMut {
+    LibEntityMut {
+        meta: LibEntityMeta::create_from_static_libentity(entity_data, static_libentity),
     }
 }

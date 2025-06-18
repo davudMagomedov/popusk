@@ -38,6 +38,7 @@ pub fn decode_path(st: &OsStr) -> PathBuf {
         i += 1;
     }
 
+    path = path.join(OsStr::from_bytes(&st_bytes[start_index..i]));
     path
 }
 

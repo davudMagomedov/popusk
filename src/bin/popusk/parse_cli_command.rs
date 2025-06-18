@@ -11,40 +11,34 @@ pub enum P_WA_Command {
 pub fn parse_cli_command(cli_command: CliCommand) -> P_WA_Command {
     match cli_command {
         CliCommand::Init => P_WA_Command::WACommand(Box::new(InitWACMD::new())),
-        CliCommand::Update => P_WA_Command::WACommand(Box::new(UpdateWAPCMD::new())),
         CliCommand::AddPath { path } => P_WA_Command::PCommand(Box::new(AddPathPCMD::new(path))),
-        CliCommand::AddProgress { id, progress } => {
-            P_WA_Command::PCommand(Box::new(AddProgressPCMD::new(id, progress)))
+        CliCommand::SetProgress { path, progress } => {
+            P_WA_Command::PCommand(Box::new(SetProgressPCMD::new(path, progress)))
         }
-        CliCommand::AddEntitybase { id } => {
-            P_WA_Command::PCommand(Box::new(AddEntitybasePCMD::new(id)))
+        CliCommand::SetEntitybase { path } => {
+            P_WA_Command::PCommand(Box::new(SetEntitybasePCMD::new(path)))
         }
-        CliCommand::AddFreeData { id, file } => {
-            P_WA_Command::PCommand(Box::new(AddFreeDataPCMD::new(id, file)))
+        CliCommand::SetFreeData { path, file } => {
+            P_WA_Command::PCommand(Box::new(SetFreeDataPCMD::new(path, file)))
         }
-        CliCommand::AddTags { id, tags } => {
-            P_WA_Command::PCommand(Box::new(AddTagsPCMD::new(id, tags)))
+        CliCommand::AddTags { path, tags } => {
+            P_WA_Command::PCommand(Box::new(AddTagsPCMD::new(path, tags)))
         }
-        CliCommand::AddDescription { id, description } => {
-            P_WA_Command::PCommand(Box::new(AddDescriptionPCMD::new(id, description)))
+        CliCommand::SetDescription { path, description } => {
+            P_WA_Command::PCommand(Box::new(SetDescriptionPCMD::new(path, description)))
         }
-        CliCommand::DelPath { path } => P_WA_Command::PCommand(Box::new(DelPathPCMD::new(path))),
-        CliCommand::DelProgress { id } => {
-            P_WA_Command::PCommand(Box::new(DelProgressPCMD::new(id)))
+        CliCommand::DelProgress { path } => {
+            P_WA_Command::PCommand(Box::new(DelProgressPCMD::new(path)))
         }
-        CliCommand::DelEntitybase { id } => {
-            P_WA_Command::PCommand(Box::new(DelEntitybasePCMD::new(id)))
+        CliCommand::DelTags { path } => P_WA_Command::PCommand(Box::new(DelTagsPCMD::new(path))),
+        CliCommand::DelDescription { path } => {
+            P_WA_Command::PCommand(Box::new(DelDescriptionPCMD::new(path)))
         }
-        CliCommand::DelTags { id } => P_WA_Command::PCommand(Box::new(DelTagsPCMD::new(id))),
-        CliCommand::DelDescription { id } => {
-            P_WA_Command::PCommand(Box::new(DelDescriptionPCMD::new(id)))
+        CliCommand::GetProgress { path } => {
+            P_WA_Command::PCommand(Box::new(GetProgressPCMD::new(path)))
         }
-        CliCommand::GetId { path } => P_WA_Command::PCommand(Box::new(GetIDPCMD::new(path))),
-        CliCommand::GetProgress { id } => {
-            P_WA_Command::PCommand(Box::new(GetProgressPCMD::new(id)))
-        }
-        CliCommand::GetEntitybase { id } => {
-            P_WA_Command::PCommand(Box::new(GetEntitybasePCMD::new(id)))
+        CliCommand::GetEntitybase { path } => {
+            P_WA_Command::PCommand(Box::new(GetEntitybasePCMD::new(path)))
         }
         CliCommand::AddLibentity { path } => {
             P_WA_Command::PCommand(Box::new(AddLibentityPCMD::new(path)))
@@ -60,14 +54,18 @@ pub fn parse_cli_command(cli_command: CliCommand) -> P_WA_Command {
             show_hidden,
             show_directories,
             ignore,
-        } => P_WA_Command::PCommand(Box::new(StatusPCMD::new(show_hidden, show_directories, ignore))),
+        } => P_WA_Command::PCommand(Box::new(StatusPCMD::new(
+            show_hidden,
+            show_directories,
+            ignore,
+        ))),
         CliCommand::Open { path, just_look } => {
             P_WA_Command::PCommand(Box::new(OpenPCMD::new(path, just_look)))
         }
         CliCommand::ChangeProgress {
-            id,
+            path,
             progress_update,
-        } => P_WA_Command::PCommand(Box::new(ChangeProgressPCMD::new(id, progress_update))),
+        } => P_WA_Command::PCommand(Box::new(ChangeProgressPCMD::new(path, progress_update))),
         CliCommand::RenameLibentity { path, new_path } => {
             P_WA_Command::PCommand(Box::new(RenameLibEntityPCMD::new(path, new_path)))
         }

@@ -1,32 +1,11 @@
 use popusk::app::App;
-use popusk::scripts::ScriptsError;
-use popusk::error_ext::CommonizeResultExt;
-use popusk::library::LibraryError;
-use popusk::types::{LibEntityData, EntityType, LibEntityMetaError};
+use popusk::types::{LibEntity, EntityType};
 
-use super::{PCommand, PExecutionError};
+use super::{PCommand, PExecError, PEResult};
 
 use std::path::PathBuf;
 
-use thiserror::Error as ThisError;
 use itertools::Itertools;
-
-type CMDResult<T, E = CMDError> = Result<T, E>;
-
-#[derive(Debug, ThisError)]
-enum CMDError {
-    #[error("library entity '{path}' already exists")]
-    LibEntityAlreadyExists { path: PathBuf },
-    #[error("file '{path}' doesn't exist")]
-    FileDoesNotExist { path: PathBuf },
-
-    #[error("scripts: {0}")]
-    Scripts(#[from] ScriptsError),
-    #[error("library: {0}")]
-    Library(#[from] LibraryError),
-    #[error("libentity meta: {0}")]
-    LibEntityMeta(#[from] LibEntityMetaError)
-}
 
 #[derive(Debug, Clone)]
 pub struct AddLibentityPCMD {
@@ -38,7 +17,7 @@ impl AddLibentityPCMD {
         AddLibentityPCMD { path }
     }
 
-    fn fix_libentity_data(&self, mut libentity_data: LibEntityData) -> CMDResult<LibEntityData> {
+    fn fix_libentity_data(&self, mut libentity_data: LibEntity) -> PEResult<LibEntity> {
         libentity_data.path = self.path.clone();
         if self.path.is_dir() { libentity_data.etype = EntityType::Section }
         libentity_data.tags = libentity_data.tags.into_iter().unique().collect();
@@ -47,34 +26,32 @@ impl AddLibentityPCMD {
     }
 
     /// Returns error if somehow the command can't be run.
-    fn validation_check(&self, app: &App) -> CMDResult<()> {
-        if app.library().libentity_exists(self.path.clone())? {
-            return Err(CMDError::LibEntityAlreadyExists { path: self.path.clone() });
+    fn validation_check(&self, app: &App) -> PEResult<()> {
+        if app.library().libentity_exists(&self.path.clone()) {
+            return Err(PExecError::LibEntityAlreadyExists { entitypath: self.path.clone() });
         };
 
         if !self.path.exists() {
-            return Err(CMDError::FileDoesNotExist { path:  self.path.clone() });
+            return Err(PExecError::PathDoesNotExist { path: self.path.clone() });
         }
 
         Ok(())
     }
 
-    fn execute_inner(&self, app: &mut App) -> CMDResult<()> {
+    fn execute_inner(&self, app: &mut App) -> PEResult<()> {
         self.validation_check(app)?;
 
-        let libentity_data = app.scripts().add_library_entity(self.path.clone())?;
-        let libentity_data = self.fix_libentity_data(libentity_data)?;
-        let libentity = app.library_mut().create_libentity_from_libentitydata(libentity_data)?;
-        libentity.dump_to_storage()?;
+        let libentity = app.scripts().add_library_entity(self.path.clone())?;
+        let libentity = self.fix_libentity_data(libentity)?;
+        let libentity_mut = app.library_mut().create_from_static_libentity(libentity);
+        libentity_mut.dump_to_storage();
 
         Ok(())
     }
 }
 
 impl PCommand for AddLibentityPCMD {
-    fn execute(&self, app: &mut App) -> Result<(), PExecutionError> {
-        self.execute_inner(app).commonize()?;
-
-        Ok(())
+    fn execute(&self, app: &mut App) -> PEResult<()> {
+        self.execute_inner(app)
     }
 }
