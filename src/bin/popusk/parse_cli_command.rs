@@ -37,6 +37,12 @@ pub fn parse_cli_command(cli_command: CliCommand) -> P_WA_Command {
         CliCommand::GetProgress { path } => {
             P_WA_Command::PCommand(Box::new(GetProgressPCMD::new(path)))
         }
+        CliCommand::GetDescription { path } => {
+            P_WA_Command::PCommand(Box::new(GetDescriptionPCMD::new(path)))
+        }
+        CliCommand::GetTags { path } => {
+            P_WA_Command::PCommand(Box::new(GetTagsPCMD::new(path)))
+        }
         CliCommand::GetEntitybase { path } => {
             P_WA_Command::PCommand(Box::new(GetEntitybasePCMD::new(path)))
         }

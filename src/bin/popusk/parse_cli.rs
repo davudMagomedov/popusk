@@ -54,6 +54,10 @@ pub enum CliCommand {
     /// Return base of the library entity associated wtih the given ID
     #[command(name = "get_entitybase")]
     GetEntitybase { path: PathBuf },
+    #[command(name = "get_description")]
+    GetDescription { path: PathBuf },
+    #[command(name = "get_tags")]
+    GetTags { path: PathBuf },
     /// Add library entity to the storage of current directory
     #[command(name = "add_libentity")]
     AddLibentity { path: PathBuf },
