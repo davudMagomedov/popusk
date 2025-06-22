@@ -22,7 +22,7 @@ pub type ScriptsResult<T, E = ScriptsError> = Result<T, E>;
 
 #[derive(Error, Debug)]
 pub enum ScriptsError {
-    #[error("global conf: {0}")]
+    #[error("{0}")]
     GlobalConfError(#[from] GlobalConfError),
     #[error("couldn't find scripts file in the '{0}' path")]
     ScriptsFileWasNotFound(PathBuf),

@@ -7,7 +7,7 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum WAExexutionError {
-    #[error("app error: {0}")]
+    #[error("{0}")]
     AppError(#[from] AppError),
 }
 

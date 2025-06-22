@@ -25,7 +25,8 @@ use crate::custom_fs::{open_readfile, FSError};
 use crate::error_ext::ResultExt;
 use crate::global_conf_directory::{configdir, GlobalConfError};
 
-use std::io::Read;
+use std::fs::File;
+use std::io::{ErrorKind as IoErrorKind, Read};
 use std::path::{Path, PathBuf};
 
 use serde_derive::{Deserialize, Serialize};
@@ -40,6 +41,12 @@ pub enum LCError {
     ConfigProcessing { lc_file: PathBuf, err: TomlDEError },
     #[error("{0}")]
     FS(#[from] FSError),
+    #[error(
+        "config does not exist
+  Create {lc_file} and fill necessary fields
+  Read documentation for more information"
+    )]
+    ConfigNotFound { lc_file: PathBuf },
     #[error("{0}")]
     GLobalConfError(#[from] GlobalConfError),
 }
@@ -84,17 +91,29 @@ impl LocalConfigRaw {
     }
 }
 
+fn open_lc_file(lc_path: &Path) -> LCResult<File> {
+    match open_readfile(lc_path) {
+        Ok(file) => Ok(file),
+        Err(FSError { ioerr, .. }) if ioerr.kind() == IoErrorKind::NotFound => {
+            Err(LCError::ConfigNotFound {
+                lc_file: lc_path.to_path_buf(),
+            })
+        }
+        Err(fserr) => Err(fserr.into()),
+    }
+}
+
 /// Opens local-config file and parses it to `LocalConfigRaw`.
-pub fn read_local_config_raw(local_config_path: &Path) -> LCResult<LocalConfigRaw> {
-    let mut file = open_readfile(local_config_path)?;
+pub fn read_local_config_raw(lc_path: &Path) -> LCResult<LocalConfigRaw> {
+    let mut file = open_lc_file(lc_path)?;
     let mut file_content = String::new();
     file.read_to_string(&mut file_content)
-        .unwrap_or_explosion_with(|| format!("reading {}", local_config_path.to_string_lossy(),));
+        .unwrap_or_explosion_with(|| format!("reading {}", lc_path.to_string_lossy(),));
     let lc_raw: LocalConfigRaw = match toml_from_str(&file_content) {
         Ok(v) => v,
         Err(toml_err) => {
             return Err(LCError::ConfigProcessing {
-                lc_file: local_config_path.to_path_buf(),
+                lc_file: lc_path.to_path_buf(),
                 err: toml_err,
             })
         }

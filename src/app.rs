@@ -18,7 +18,7 @@ pub enum AppError {
     EDError(#[from] EDError),
     #[error("scripts: {0}")]
     ScriptsError(#[from] ScriptsError),
-    #[error("local config error: {0}")]
+    #[error("{0}")]
     LocalConfigError(#[from] LCError),
 }
 
