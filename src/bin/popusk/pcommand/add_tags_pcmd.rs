@@ -1,9 +1,9 @@
 use popusk::app::App;
 use popusk::comps_appearance::parse_string_to_tags;
-use popusk::types::LibEntityMut;
-use popusk::types::Tag;
+use popusk::types::{LibEntityMut, Tag};
 
 use super::{PCommand, PEResult, PExecError};
+use super::minilib::verify_tags;
 
 use std::path::PathBuf;
 
@@ -44,6 +44,7 @@ impl AddTagsPCMD {
 
         tags.extend(new_tags);
         tags = tags.into_iter().unique().collect();
+        verify_tags(&tags)?;
 
         libentity.set_tags(tags);
         libentity.dump_to_storage();

@@ -1,7 +1,8 @@
 use popusk::app::App;
-use popusk::types::{LibEntity, EntityType};
+use popusk::types::{EntityType, LibEntity};
 
-use super::{PCommand, PExecError, PEResult};
+use super::{PCommand, PEResult, PExecError};
+use super::minilib::verify_tags;
 
 use std::path::PathBuf;
 
@@ -19,20 +20,27 @@ impl AddLibentityPCMD {
 
     fn fix_libentity_data(&self, mut libentity_data: LibEntity) -> PEResult<LibEntity> {
         libentity_data.path = self.path.clone();
-        if self.path.is_dir() { libentity_data.etype = EntityType::Section }
+        if self.path.is_dir() {
+            libentity_data.etype = EntityType::Section
+        }
         libentity_data.tags = libentity_data.tags.into_iter().unique().collect();
+        verify_tags(&libentity_data.tags)?;
 
         Ok(libentity_data)
     }
 
     /// Returns error if somehow the command can't be run.
     fn validation_check(&self, app: &App) -> PEResult<()> {
-        if app.library().libentity_exists(&self.path.clone()) {
-            return Err(PExecError::LibEntityAlreadyExists { entitypath: self.path.clone() });
+        if app.library().libentity_exists(&self.path) {
+            return Err(PExecError::LibEntityAlreadyExists {
+                entitypath: self.path.clone(),
+            });
         };
 
         if !self.path.exists() {
-            return Err(PExecError::PathDoesNotExist { path: self.path.clone() });
+            return Err(PExecError::PathDoesNotExist {
+                path: self.path.clone(),
+            });
         }
 
         Ok(())

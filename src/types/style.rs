@@ -98,7 +98,7 @@ impl FromLua for StyledText {
     }
 }
 
-/// If there's a buf in this regular expression I will go through the window.
+/// If there's a bug in this regular expression I will go through the window.
 const TEXTBURST_REGEX_STRING: &str = r"\[\[(?:(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\:(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\:(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5]))?\|(?:(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\:(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5])\:(1?[0-9]{1,2}|2[0-4][0-9]|25[0-5]))?\|([01]{3})?\]\]\{\{((?:.|\n)*?)\}\}";
 static TEXTBURST_REGEX: OnceCell<regex::Regex> = OnceCell::new();
 

@@ -1,17 +1,17 @@
 use crate::error_ext::{ComError, ComResult};
 use crate::types::{EntityBase, EntityType, Progress, ProgressUpdate, Tag};
 
-const STRINGIFIED_ETYPE_SECTION: &str = "section";
-const STRINGIFIED_ETYPE_REGULAR: &str = "regular";
-const STRINGIFIED_ETYPE_DOCUMENT: &str = "document";
+pub const STRINGIFIED_ETYPE_SECTION: &str = "section";
+pub const STRINGIFIED_ETYPE_REGULAR: &str = "regular";
+pub const STRINGIFIED_ETYPE_DOCUMENT: &str = "document";
 
 /// Returns string-equivalet for `EntityType` *in lower case*.
 #[inline]
-pub fn entitytype_to_string(etype: EntityType) -> String {
+pub const fn entitytype_to_string(etype: EntityType) -> &'static str {
     match etype {
-        EntityType::Section => STRINGIFIED_ETYPE_SECTION.to_string(),
-        EntityType::Regular => STRINGIFIED_ETYPE_REGULAR.to_string(),
-        EntityType::Document => STRINGIFIED_ETYPE_DOCUMENT.to_string(),
+        EntityType::Section => STRINGIFIED_ETYPE_SECTION,
+        EntityType::Regular => STRINGIFIED_ETYPE_REGULAR,
+        EntityType::Document => STRINGIFIED_ETYPE_DOCUMENT,
     }
 }
 
@@ -38,7 +38,7 @@ pub fn entitybase_to_oneline_string(entitybase: &EntityBase) -> String {
     format!("{{ name: '{}', ... }}", entitybase.name)
 }
 
-fn tags_to_string(tags: &[Tag]) -> String {
+pub fn tags_to_string(tags: &[Tag]) -> String {
     if tags.len() == 0 {
         return "<no tags>".to_string();
     }

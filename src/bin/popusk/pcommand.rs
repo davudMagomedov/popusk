@@ -19,6 +19,7 @@ mod del_libentity_pcmd;
 mod del_progress_pcmd;
 mod del_tags_pcmd;
 mod get_description_pcmd;
+mod minilib;
 mod get_entitybase_pcmd;
 mod get_progress_pcmd;
 mod get_tags_pcmd;
@@ -66,10 +67,12 @@ use std::path::PathBuf;
 
 use thiserror::Error;
 use walkdir::Error as WDError;
+use itertools::Itertools;
 
 type PEResult<T> = Result<T, PExecError>;
 
 #[derive(Debug, Error)]
+// All error message must be one line
 pub enum PExecError {
     #[error("{0}")]
     FSError(#[from] FSError),
@@ -112,6 +115,18 @@ pub enum PExecError {
     CouldNotCreateContext,
     #[error("{0}")]
     WDError(#[from] WDError),
+    #[error("invalid tags: {sepd_tags} (don't match '{regex}')")]
+    InvalidTags {
+        sepd_tags: String,
+        regex: &'static str,
+    },
+    #[error("invalid entity type: expected {expected}, got {actually}")]
+    InvalidEtype {
+        expected: &'static str,
+        actually: &'static str,
+    },
+    #[error("{}", _0.into_iter().join(" || "))]
+    Multiple(Vec<PExecError>),
 }
 
 /// `PCommand` (*P*opusk *C*ommand).

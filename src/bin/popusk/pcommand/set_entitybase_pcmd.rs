@@ -1,15 +1,19 @@
 use crate::io_ext::IoExt;
 
 use super::{PCommand, PEResult, PExecError};
+use super::minilib::verify_tags;
 
 use popusk::app::App;
+use popusk::comps_appearance::entitytype_to_string;
 use popusk::error_ext::ErrorExt;
-use popusk::types::{EntityBase, LibEntityMut};
+use popusk::types::{EntityBase, EntityType, LibEntityMut};
 
 use std::io::stdin;
 use std::path::PathBuf;
 
 use serde_json::from_str as from_json_str;
+
+const REGULAR_OR_DOCUMENT: &'static str = "regular or document";
 
 /// UNSAFE COMMAND
 #[derive(Debug, Clone)]
@@ -30,6 +34,21 @@ impl SetEntitybasePCMD {
             })
     }
 
+    fn verify_etype(&self, etype: EntityType, libentity: &LibEntityMut) -> PEResult<()> {
+        use EntityType::*;
+        match (libentity.etype(), etype) {
+            (Section, Regular | Document) => Err(PExecError::InvalidEtype {
+                expected: entitytype_to_string(Section),
+                actually: entitytype_to_string(etype),
+            }),
+            (Regular | Document, Section) => Err(PExecError::InvalidEtype {
+                expected: REGULAR_OR_DOCUMENT,
+                actually: entitytype_to_string(Section),
+            }),
+            _ => Ok(()),
+        }
+    }
+
     fn read_ebase(&self) -> PEResult<EntityBase> {
         let json_ebase = match stdin().read_to_end_string() {
             Ok(js) => js,
@@ -45,9 +64,25 @@ impl SetEntitybasePCMD {
         Ok(ebase)
     }
 
+    fn verify_ebase(&self, ebase: &EntityBase, libentity: &LibEntityMut) -> PEResult<()> {
+        let mut errs = Vec::with_capacity(2);
+        if let Some(err) = verify_tags(&ebase.tags).err() {
+            errs.push(err);
+        }
+        if let Some(err) = self.verify_etype(ebase.etype, &libentity).err() {
+            errs.push(err);
+        }
+        match errs.is_empty() {
+            true => Ok(()),
+            false => Err(PExecError::Multiple(errs))
+        }
+    }
+
     fn execute_inner(&self, app: &mut App) -> PEResult<()> {
         let mut libentity = self.get_libentity(app)?;
         let ebase = self.read_ebase()?;
+
+        self.verify_ebase(&ebase, &libentity)?;
 
         libentity.set_name(ebase.name);
         libentity.set_etype(ebase.etype);
