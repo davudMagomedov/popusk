@@ -252,12 +252,23 @@ impl LibEntityMeta {
     }
 
     fn dump_ebase_to_storage(&self) -> Result<(), EDError> {
-        let mut borrowed_entitydata = self.entity_data.borrow_mut();
-        if let Some(ebase) = self.ebase_raw() {
-            borrowed_entitydata.set_ebase(&self.path, ebase)
+        let ebase = if let Some(ebase) = self.ebase_raw() {
+            ebase
         } else {
-            Ok(())
-        }
+            let mut ebase = self.read_ebase_from_storage();
+            if let Some(name) = self.name_raw() {
+                ebase.name = name;
+            }
+            if let Some(etype) = self.etype_raw() {
+                ebase.etype = etype;
+            }
+            if let Some(tags) = self.tags_raw() {
+                ebase.tags = tags;
+            }
+            ebase
+        };
+
+        self.entity_data.borrow_mut().set_ebase(&self.path, ebase)
     }
 
     fn dump_progress_to_storage(&self) -> Result<(), EDError> {
@@ -345,9 +356,10 @@ impl LibEntityMeta {
     }
 
     fn cache_ebase(&self, ebase: EntityBase) {
-        let _ = self.data_cached.borrow_mut().name.insert(ebase.name);
-        let _ = self.data_cached.borrow_mut().etype.insert(ebase.etype);
-        let _ = self.data_cached.borrow_mut().tags.insert(ebase.tags);
+        let mut data_cached = self.data_cached.borrow_mut();
+        let _ = data_cached.name.insert(ebase.name);
+        let _ = data_cached.etype.insert(ebase.etype);
+        let _ = data_cached.tags.insert(ebase.tags);
     }
 
     fn cache_progress(&self, progress: Option<Progress>) {

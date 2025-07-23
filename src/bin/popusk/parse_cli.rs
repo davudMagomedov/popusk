@@ -1,5 +1,7 @@
-use popusk::comps_appearance::{progress_from_string, progress_update_from_string};
-use popusk::{Progress, ProgressUpdate};
+use popusk::comps_appearance::{
+    entitytype_from_string, progress_from_string, progress_update_from_string,
+};
+use popusk::types::{Progress, ProgressUpdate, EntityType};
 
 use std::path::PathBuf;
 
@@ -33,12 +35,25 @@ pub enum CliCommand {
         #[arg(value_parser = progress_from_string)]
         progress: Progress,
     },
-    /// Add entity base for ID. Put serialized entitybase to stdin
+    /// Add entity base for library entity. Put serialized entitybase to stdin
     #[command(name = "set_entitybase")]
     SetEntitybase { path: PathBuf },
+    /// Set name for library entity
+    #[command(name = "set_name")]
+    SetName { path: PathBuf, name: String },
+    /// Set type for library entity
+    #[command(name = "set_etype")]
+    SetEtype {
+        path: PathBuf,
+        #[arg(value_parser = entitytype_from_string)]
+        etype: EntityType,
+    },
     /// Add freedata for ID. Takes JSON dictionary.
     #[command(name = "set_freedata")]
-    SetFreeData { path: PathBuf, file: Option<PathBuf> },
+    SetFreeData {
+        path: PathBuf,
+        file: Option<PathBuf>,
+    },
     /// Add description for ID
     #[command(name = "set_description")]
     SetDescription { path: PathBuf, description: String },

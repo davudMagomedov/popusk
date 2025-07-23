@@ -1,25 +1,26 @@
 use crate::error_ext::{ComError, ComResult};
 use crate::types::{EntityBase, EntityType, Progress, ProgressUpdate, Tag};
 
-pub const STRINGIFIED_ETYPE_SECTION: &str = "section";
-pub const STRINGIFIED_ETYPE_REGULAR: &str = "regular";
-pub const STRINGIFIED_ETYPE_DOCUMENT: &str = "document";
+pub const ETYPE_SECTION: &str = "section";
+pub const ETYPE_REGULAR: &str = "regular";
+pub const ETYPE_DOCUMENT: &str = "document";
+pub const ETYPE_REGULAR_OR_DOCUMENT: &str = "regular or document";
 
 /// Returns string-equivalet for `EntityType` *in lower case*.
 #[inline]
 pub const fn entitytype_to_string(etype: EntityType) -> &'static str {
     match etype {
-        EntityType::Section => STRINGIFIED_ETYPE_SECTION,
-        EntityType::Regular => STRINGIFIED_ETYPE_REGULAR,
-        EntityType::Document => STRINGIFIED_ETYPE_DOCUMENT,
+        EntityType::Section => ETYPE_SECTION,
+        EntityType::Regular => ETYPE_REGULAR,
+        EntityType::Document => ETYPE_DOCUMENT,
     }
 }
 
 pub fn entitytype_from_string(string: &str) -> ComResult<EntityType> {
     match string {
-        STRINGIFIED_ETYPE_DOCUMENT => Ok(EntityType::Document),
-        STRINGIFIED_ETYPE_REGULAR => Ok(EntityType::Regular),
-        STRINGIFIED_ETYPE_SECTION => Ok(EntityType::Section),
+        ETYPE_DOCUMENT => Ok(EntityType::Document),
+        ETYPE_REGULAR => Ok(EntityType::Regular),
+        ETYPE_SECTION => Ok(EntityType::Section),
         _ => Err(ComError::from(format!(
             "couldn't recognize '{}' as entity type",
             string

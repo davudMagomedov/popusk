@@ -18,6 +18,12 @@ pub fn parse_cli_command(cli_command: CliCommand) -> P_WA_Command {
         CliCommand::SetEntitybase { path } => {
             P_WA_Command::PCommand(Box::new(SetEntitybasePCMD::new(path)))
         }
+        CliCommand::SetName { path, name } => {
+            P_WA_Command::PCommand(Box::new(SetNamePCMD::new(path, name)))
+        }
+        CliCommand::SetEtype { path, etype } => {
+            P_WA_Command::PCommand(Box::new(SetEtypePCMD::new(path, etype)))
+        }
         CliCommand::SetFreeData { path, file } => {
             P_WA_Command::PCommand(Box::new(SetFreeDataPCMD::new(path, file)))
         }

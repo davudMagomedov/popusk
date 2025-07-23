@@ -19,17 +19,19 @@ mod del_libentity_pcmd;
 mod del_progress_pcmd;
 mod del_tags_pcmd;
 mod get_description_pcmd;
-mod minilib;
 mod get_entitybase_pcmd;
 mod get_progress_pcmd;
 mod get_tags_pcmd;
 mod list_pcmd;
 mod look_pcmd;
+mod minilib;
 mod open_pcmd;
 mod rename_libentity_pcmd;
 mod set_description_pcmd;
 mod set_entitybase_pcmd;
+mod set_etype_pcmd;
 mod set_freedata_pcmd;
+mod set_name_pcmd;
 mod set_progress_pcmd;
 mod status_pcmd;
 
@@ -51,7 +53,9 @@ pub use open_pcmd::*;
 pub use rename_libentity_pcmd::*;
 pub use set_description_pcmd::*;
 pub use set_entitybase_pcmd::*;
+pub use set_etype_pcmd::*;
 pub use set_freedata_pcmd::*;
+pub use set_name_pcmd::*;
 pub use set_progress_pcmd::*;
 pub use status_pcmd::*;
 
@@ -65,9 +69,9 @@ use popusk::types::ProgressUpdateError;
 use std::io::Error as IoError;
 use std::path::PathBuf;
 
+use itertools::Itertools;
 use thiserror::Error;
 use walkdir::Error as WDError;
-use itertools::Itertools;
 
 type PEResult<T> = Result<T, PExecError>;
 
