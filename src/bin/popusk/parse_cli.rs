@@ -1,7 +1,7 @@
 use popusk::comps_appearance::{
     entitytype_from_string, progress_from_string, progress_update_from_string,
 };
-use popusk::types::{Progress, ProgressUpdate, EntityType};
+use popusk::types::{EntityType, Progress, ProgressUpdate};
 
 use std::path::PathBuf;
 
@@ -25,64 +25,67 @@ pub enum CliCommand {
     /// Initialize current directory
     #[command(name = "init")]
     Init,
-    /// Add path to the storage of the current directory
+    /// Add the path to popusk storage (low-level command)
     #[command(name = "llc_add_path")]
     AddPath { path: PathBuf },
-    /// Add progress to the storage of the current directory
+    /// Set the progress for the library entity
     #[command(name = "set_progress")]
     SetProgress {
         path: PathBuf,
         #[arg(value_parser = progress_from_string)]
         progress: Progress,
     },
-    /// Add entity base for library entity. Put serialized entitybase to stdin
+    /// Set the base for the library entity. Takes JSON structure with fields 'name', 'etype' and
+    /// 'tags'
     #[command(name = "set_entitybase")]
     SetEntitybase { path: PathBuf },
-    /// Set name for library entity
+    /// Set the name for the library entity
     #[command(name = "set_name")]
     SetName { path: PathBuf, name: String },
-    /// Set type for library entity
+    /// Set the type for the library entity
     #[command(name = "set_etype")]
     SetEtype {
         path: PathBuf,
         #[arg(value_parser = entitytype_from_string)]
         etype: EntityType,
     },
-    /// Add freedata for ID. Takes JSON dictionary.
+    /// Set the freedata for the library entity. Takes JSON structure from stdin or a file
     #[command(name = "set_freedata")]
     SetFreeData {
         path: PathBuf,
         file: Option<PathBuf>,
     },
-    /// Add description for ID
+    /// Set the description for the library entity
     #[command(name = "set_description")]
     SetDescription { path: PathBuf, description: String },
-    /// Delete the progress from the storage of current directory
+    /// Delete progress of the library entity
     #[command(name = "del_progress")]
     DelProgress { path: PathBuf },
-    /// Delete the description from the storage of current directory
+    /// Delete description of the library entity
     #[command(name = "del_description")]
     DelDescription { path: PathBuf },
-    /// Return progress of the library entity associated wtih the given ID
+    /// Output a progress of the library entity
     #[command(name = "get_progress")]
     GetProgress { path: PathBuf },
-    /// Return base of the library entity associated wtih the given ID
+    /// Output a base of the library entity
     #[command(name = "get_entitybase")]
     GetEntitybase { path: PathBuf },
+    /// Output a description of the library entity
     #[command(name = "get_description")]
     GetDescription { path: PathBuf },
+    /// Output tags of the library entity
     #[command(name = "get_tags")]
     GetTags { path: PathBuf },
-    /// Add library entity to the storage of current directory
+    /// Add library entity. Path must exist in the directory and absent in popusk storage
     #[command(name = "add_libentity")]
     AddLibentity { path: PathBuf },
-    /// Delete library entity associated with the given path
+    /// Delete the library entity from popusk storage (don't affect a filesystem)
     #[command(name = "del_libentity")]
     DelLibentity { path: PathBuf },
-    /// Returns the "cover" of the library entity associated with the given path
+    /// Output the "cover" of the library entity
     #[command(name = "look")]
     Look { path: PathBuf },
-    /// Open the library entity associated with the given path
+    /// Open the library entity
     ///
     /// The opening method is dictated in the configuration
     #[command(name = "open")]
@@ -91,13 +94,13 @@ pub enum CliCommand {
         #[arg(long, short = 'j', action = ArgAction::SetTrue)]
         just_look: bool,
     },
-    /// Return the list of all library entities
+    /// Output the list of all library entities
     #[command(name = "list")]
     List {
         #[arg(long, short = 'w', action = ArgAction::SetTrue)]
         wide: bool,
     },
-    /// Return status of current directory: untracked files for example
+    /// Output information of the current directory: untracked files for example
     #[command(name = "status")]
     Status {
         /// Include hidden files
@@ -108,7 +111,7 @@ pub enum CliCommand {
         show_directories: bool,
         ignore: Option<String>,
     },
-    /// Change progress associated with the given ID
+    /// Change progress for the library entity
     #[command(name = "change_progress")]
     ChangeProgress {
         path: PathBuf,
@@ -118,10 +121,10 @@ pub enum CliCommand {
     /// Extend current set of tags by new ones
     #[command(name = "add_tags")]
     AddTags { path: PathBuf, tags: String },
-    /// Delete tags associated with the given ID
+    /// Delete selected tags of the library entity
     #[command(name = "del_tags")]
     DelTags { path: PathBuf },
     /// Move library entity to new place
-    #[command(name = "rename")]
+    #[command(name = "move")]
     RenameLibentity { path: PathBuf, new_path: PathBuf },
 }
